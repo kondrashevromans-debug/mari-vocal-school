@@ -1,0 +1,499 @@
+/* =================================== */
+/*    ОБЩИЙ МАКЕТ ТЮНЕРА/ТРЕНАЖЕРА     */
+/* =================================== */
+
+.app-container-tuner {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 45px); /* 45px - примерная высота хедера */
+}
+
+.main-content {
+  display: flex;
+  flex-grow: 1;
+  position: relative;
+  cursor: grab;
+}
+
+.main-content:active {
+  cursor: grabbing;
+}
+
+.canvas-viewport {
+  flex-grow: 1;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+#piano-container,
+#pitch-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  will-change: transform;
+}
+
+/* =================================== */
+/*        ДИСПЛЕЙ (ВЕРХНЯЯ ЧАСТЬ)      */
+/* =================================== */
+
+.output-display {
+  text-align: center;
+  padding: 10px;
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  flex-shrink: 0;
+  border-bottom: 1px solid #333;
+  transition: background-color 0.3s;
+}
+
+.note-display {
+  font-size: 36px;
+  font-weight: bold;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+#octave {
+  font-size: 18px;
+  vertical-align: super;
+}
+
+.details-display {
+  font-size: 12px;
+  color: var(--tg-theme-hint-color, #888);
+}
+
+#target-note-display {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--tg-theme-text-color, #fff);
+  height: 18px;
+  margin-bottom: 4px;
+}
+
+/* Состояния дисплея */
+.output-display.correct {
+  background-color: #28a745;
+}
+.output-display.octave-miss {
+  background-color: #ffc107;
+}
+.output-display.wrong {
+  background-color: #dc3545;
+}
+
+/* =================================== */
+/*        ИНДИКАТОР ТЮНЕРА             */
+/* =================================== */
+
+.tuner-container {
+  margin-top: 8px;
+  height: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.tuner-bar {
+  width: 80%;
+  max-width: 250px;
+  height: 100%;
+  background-color: #333;
+  border-radius: 5px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #555;
+}
+
+#tuner-indicator {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 4px;
+  height: 100%;
+  background-color: #ffc107;
+  transform: translateX(-50%);
+  transition: left 0.1s linear;
+  opacity: 0;
+}
+
+.tuner-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10%;
+  height: 100%;
+  background-color: rgba(40, 167, 69, 0.5);
+}
+
+/* =================================== */
+/*    КЛАВИАТУРА И ПОДПИСИ К НЕЙ       */
+/* =================================== */
+
+.piano-viewport {
+  flex: 0 0 75px; /* Увеличена ширина для текста */
+  background: #333;
+  border-right: 2px solid #555;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.key {
+  position: absolute;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #000;
+}
+
+.key.white {
+  background-color: #fff;
+  z-index: 1;
+}
+
+.key.black {
+  background-color: #333;
+  width: 53.33%; /* Скомпенсирована ширина, чтобы остаться ~30px */
+  z-index: 2;
+}
+
+.key:active {
+  background-color: #ffc107;
+}
+
+/* Стили для подписей к клавишам (ЕДИНЫЙ БЛОК) */
+.key-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+  font-weight: 500;
+}
+
+.key.white .key-label {
+  bottom: 6px;
+  font-size: 14px;
+  color: #555;
+  text-align: right;
+  padding-right: 8px; /* Текст сдвинут в видимую зону */
+}
+
+.key.black .key-label {
+  bottom: 3px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: #fff;
+}
+
+/* Стили для целевых клавиш */
+.key.target {
+  background-color: var(--tg-theme-button-color, #007bff);
+  transition: background-color 0.3s;
+}
+
+.key.target.black {
+  background-color: #0056b3;
+}
+
+.key.target-exercise {
+  background-color: #28a745;
+  transition: background-color 0.3s;
+}
+
+.key.target-exercise.black {
+  background-color: #218838;
+}
+
+/* Текст на целевых клавишах должен быть белым */
+.key.target .key-label,
+.key.target-exercise .key-label {
+  color: #fff;
+}
+
+/* =================================== */
+/*     ПАНЕЛЬ УПРАВЛЕНИЯ (НИЖНЯЯ)      */
+/* =================================== */
+
+.controls {
+  display: flex;
+  /* --- ИЗМЕНЕНИЕ: Кнопки теперь по центру --- */
+  justify-content: center;
+  align-items: center;
+  gap: 12px; /* Увеличим отступ между кнопками */
+  padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); /* Безопасная зона */
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  flex-shrink: 0;
+  border-top: 1px solid #333;
+}
+
+.main-controls {
+  text-align: center;
+  flex-grow: 1;
+}
+
+#startButton,
+#holdButton {
+  width: 40%;
+  max-width: 130px;
+  padding: 10px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  color: var(--tg-theme-button-text-color, #fff);
+  background-color: var(--tg-theme-button-color, #007bff);
+  margin: 0 5px;
+}
+
+#startButton.listening {
+  background-color: #dc3545;
+}
+
+#holdButton {
+  background-color: #6c757d;
+}
+
+#holdButton.active {
+  background-color: #ffc107;
+  color: #000;
+}
+
+.octave-btn,
+.icon-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  border: 1px solid #555;
+  border-radius: 50%;
+  background-color: #333;
+  color: var(--tg-theme-text-color, #fff);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.octave-btn:active,
+.icon-btn:active {
+  background-color: #555;
+}
+
+#status-message {
+  font-size: 11px;
+  margin: 5px 0 0;
+  color: var(--tg-theme-hint-color, #888);
+}
+
+/* =================================== */
+/*      СПЕЦИАЛЬНЫЕ ЭЛЕМЕНТЫ           */
+/* =================================== */
+
+#referenceToneButton {
+  background: none;
+  border: none;
+  color: var(--tg-theme-hint-color, #888);
+  cursor: pointer;
+  padding: 0 5px;
+  position: absolute;
+  right: 15%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+#referenceToneButton:hover {
+  color: var(--tg-theme-text-color, #fff);
+}
+
+#referenceToneButton.active {
+  color: #ffc107;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* =================================== */
+/*      ПРОГРЕСС И СТАТИСТИКА          */
+/* =================================== */
+
+#progress-area {
+  margin-top: 10px;
+  padding: 0 10%;
+}
+
+.level-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  margin-bottom: 4px;
+  color: var(--tg-theme-hint-color, #aaa);
+}
+
+.progress-bar-container {
+  height: 6px;
+  background-color: #333;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+#progress-bar-fill {
+  width: 0%;
+  height: 100%;
+  background-color: #ffc107;
+  transition: width 0.5s ease-out;
+}
+
+/* --- Модальное окно --- */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  padding: 20px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #444;
+  padding-bottom: 10px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.stat-label {
+  color: var(--tg-theme-hint-color, #aaa);
+}
+
+.stat-value {
+  font-weight: bold;
+}
+
+.stats-header {
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--tg-theme-text-color, #fff);
+  margin: 15px 0 10px 0;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #444;
+}
+
+.stats-header:first-of-type {
+  margin-top: 0;
+}
+
+/* =================================== */
+/*      СТИЛИ ДЛЯ СТРАНИЦЫ ТРЕНАЖЕРА   */
+/* =================================== */
+
+#trainer-info-area {
+  padding: 5px 10px;
+  min-height: 40px;
+  text-align: center;
+}
+
+#trainer-instructions {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+#trainer-progress {
+  font-size: 12px;
+  color: var(--tg-theme-hint-color, #aaa);
+}
+
+.controls #trainerStartButton,
+.controls #trainerStopButton {
+  /* Общие стили для обеих кнопок */
+  padding: 12px;
+  font-size: 18px;
+  border: none;
+  border-radius: 8px;
+  color: var(--tg-theme-button-text-color, #fff);
+  flex-grow: 1; /* Кнопки будут растягиваться */
+  max-width: 260px; /* Но не слишком сильно */
+}
+
+.controls #trainerStartButton {
+  background-color: var(--tg-theme-button-color, #007bff);
+}
+
+.controls #trainerStartButton:disabled {
+  background-color: #555;
+  color: #aaa;
+  cursor: not-allowed;
+  flex-grow: 0; /* Чтобы не растягивалась в выключенном состоянии */
+  width: 200px;
+}
+
+/* НОВЫЙ СТИЛЬ для кнопки "Остановить" */
+.controls #trainerStopButton {
+  background-color: #6c757d; /* Серый цвет для вторичного действия */
+  max-width: 140px;
+}
+
+/* Модальное окно результатов тренажера */
+.results-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+#restart-button {
+  background-color: var(--tg-theme-button-color, #007bff);
+  color: var(--tg-theme-button-text-color, #fff);
+}
+
+#back-to-menu-button {
+  background-color: #6c757d;
+  color: var(--tg-theme-button-text-color, #fff);
+}

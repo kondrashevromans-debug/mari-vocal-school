@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <base href="/mari-vocal-school/" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Vocal Pitch Monitor</title>
+    <link rel="stylesheet" href="style.css?v=8" />
+    <link rel="stylesheet" href="tuner.css?v=8" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </head>
+  <body>
+    <div class="header-with-back">
+      <a href="main_vocal.html" class="back-button">‹ Назад</a>
+      <h2>Проверка на попадание в ноты</h2>
+    </div>
+    <div class="app-container-tuner">
+      <div class="output-display">
+        <div class="note-display">
+          <span id="note">--</span>
+          <span id="octave"></span>
+          <button id="referenceToneButton" class="hidden">
+            <svg
+              xmlns="http://www.w.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path
+                d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
+              ></path>
+            </svg>
+          </button>
+        </div>
+        <div class="details-display">
+          <div id="target-note-display"></div>
+          <!-- Этот элемент теперь будет показывать либо подсказку, либо отклонение -->
+          <div id="cents">Отклонение: --- cents</div>
+          <div class="tuner-container">
+            <div class="tuner-bar">
+              <div id="tuner-indicator"></div>
+            </div>
+          </div>
+          <div id="progress-area" class="hidden">
+            <div class="level-info">
+              <span id="level-display">Уровень 1</span>
+              <span id="xp-display">0 / 120 XP</span>
+            </div>
+            <div class="progress-bar-container">
+              <div id="progress-bar-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="main-content" id="main-content">
+        <div class="piano-viewport">
+          <div id="piano-container" class="piano-vertical"></div>
+        </div>
+        <div class="canvas-viewport">
+          <canvas id="pitch-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="octaveDown" class="octave-btn">▼</button>
+        <div class="main-controls">
+          <button id="startButton">Начать</button>
+          <button id="holdButton">Заморозить</button>
+          <!-- ИЗМЕНЕНИЕ: Убрали текст-заглушку отсюда -->
+          <p id="status-message"></p>
+        </div>
+        <button id="statsButton" class="icon-btn hidden">
+          <svg
+            xmlns="http://www.w.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path
+              d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"
+            ></path>
+          </svg>
+        </button>
+        <button id="octaveUp" class="octave-btn">▲</button>
+      </div>
+    </div>
+
+    <div id="stats-modal" class="modal-backdrop hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Ваша статистика</h2>
+          <button id="close-stats-modal" class="close-btn">&times;</button>
+        </div>
+        <div class="stats-list">
+          <h3 class="stats-header">За этот сеанс</h3>
+          <div class="stat-item">
+            <span class="stat-label">Любимая нота</span>
+            <span id="session-best-note-stat" class="stat-value">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Самое долгое удержание</span>
+            <span id="session-longest-hold-stat" class="stat-value">0 сек</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Лучшая точность</span>
+            <span id="session-best-intonation-stat" class="stat-value"
+              >±-- cents</span
+            >
+          </div>
+          <h3 class="stats-header">За всё время</h3>
+          <div class="stat-item">
+            <span class="stat-label">Любимая нота</span>
+            <span id="all-time-best-note-stat" class="stat-value">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Самое долгое удержание</span>
+            <span id="all-time-longest-hold-stat" class="stat-value"
+              >0 сек</span
+            >
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Лучшая точность</span>
+            <span id="all-time-best-intonation-stat" class="stat-value"
+              >±-- cents</span
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="tuner.js?v=9" defer></script>
+    <!-- Изменил версию скрипта, чтобы избежать кэширования -->
+  </body>
+</html>

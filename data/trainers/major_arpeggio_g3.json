@@ -1,0 +1,10 @@
+{
+  "title": "Арпеджио (от Соль)",
+  "description": "Пропойте звуки мажорного трезвучия.",
+  "notes": [
+    { "noteName": "G3" },
+    { "noteName": "B3" },
+    { "noteName": "D4" },
+    { "noteName": "G4" }
+  ]
+}

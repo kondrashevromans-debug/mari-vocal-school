@@ -1,0 +1,38 @@
+[
+  {
+    "id": "articulatory_apparatus",
+    "title": "АРТИКУЛЯЦИОННЫЙ АППАРАТ",
+    "icon": "👄",
+    "path": "data/exercises/01_articulatory_apparatus.json"
+  },
+  {
+    "id": "phonatory_apparatus",
+    "title": "ФОНАТОРНЫЙ АППАРАТ (ГОРТАНЬ)",
+    "icon": "🎤",
+    "path": "data/exercises/02_phonatory_apparatus.json"
+  },
+  {
+    "id": "resonator_system",
+    "title": "РЕЗОНАТОРНАЯ СИСТЕМА",
+    "icon": "🔊",
+    "path": "data/exercises/03_resonator_system.json"
+  },
+  {
+    "id": "respiratory_system",
+    "title": "ДЫХАТЕЛЬНАЯ СИСТЕМА",
+    "icon": "🫁",
+    "path": "data/exercises/04_respiratory_system.json"
+  },
+  {
+    "id": "musculoskeletal_system",
+    "title": "ОПОРНО-ДВИГАТЕЛЬНЫЙ АППАРАТ",
+    "icon": "🧍",
+    "path": "data/exercises/05_musculoskeletal_system.json"
+  },
+  {
+    "id": "nervous_system_and_hearing",
+    "title": "НЕРВНАЯ СИСТЕМА И СЛУХ",
+    "icon": "👂",
+    "path": "data/exercises/06_nervous_system_and_hearing.json"
+  }
+]

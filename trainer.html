@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <base href="/mari-vocal-school/" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Тренажер</title>
+    <link rel="stylesheet" href="style.css?v=8" />
+    <!-- ИЗМЕНЕНА ВЕРСЯ СТИЛЕЙ -->
+    <link rel="stylesheet" href="tuner.css?v=11" />
+  </head>
+  <body>
+    <div class="header-with-back">
+      <a href="trainer_menu.html" class="back-button">‹ Назад</a>
+      <h2 id="trainer-title">Вокальный тренажер</h2>
+    </div>
+    <div class="app-container-tuner">
+      <div class="output-display">
+        <div id="trainer-info-area">
+          <div id="trainer-instructions">Загрузка упражнения...</div>
+          <div id="trainer-progress"></div>
+        </div>
+        <div class="note-display">
+          <span id="note">--</span>
+          <span id="octave"></span>
+        </div>
+        <div class="details-display">
+          <div id="cents">Отклонение: --- cents</div>
+          <div class="tuner-container">
+            <div class="tuner-bar">
+              <div id="tuner-indicator"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="main-content" id="main-content">
+        <div class="piano-viewport">
+          <div id="piano-container" class="piano-vertical"></div>
+        </div>
+        <div class="canvas-viewport">
+          <canvas id="pitch-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- --- ИЗМЕНЕНИЕ: ОБНОВЛЕН БЛОК УПРАВЛЕНИЯ --- -->
+      <div class="controls">
+        <button id="trainerStartButton">Начать упражнение</button>
+        <!-- Новая кнопка, изначально скрыта -->
+        <button id="trainerStopButton" class="hidden">Остановить</button>
+        <!-- Элемент с текстом-подсказкой полностью удален -->
+      </div>
+    </div>
+
+    <div id="results-modal" class="modal-backdrop hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Упражнение завершено!</h2>
+        </div>
+        <div id="results-content" class="stats-list">
+          <!-- Результаты будут здесь -->
+        </div>
+        <div class="results-actions">
+          <button id="restart-button">Попробовать еще раз</button>
+          <button id="back-to-menu-button">К меню тренажеров</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ИЗМЕНЕНА ВЕРСИЯ СКРИПТА -->
+    <script src="trainer.js?v=11" defer></script>
+  </body>
+</html>

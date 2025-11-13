@@ -1,0 +1,379 @@
+/* =================================== */
+/*        ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ        */
+/* =================================== */
+:root {
+  --tg-theme-bg-color: #121212;
+  --tg-theme-text-color: #ffffff;
+  --tg-theme-hint-color: #aaaaaa;
+  --tg-theme-button-color: #007bff;
+  --tg-theme-button-text-color: #ffffff;
+  --tg-theme-secondary-bg-color: #1e1e1e;
+}
+
+/* =================================== */
+/*           БАЗОВЫЕ СТИЛИ             */
+/* =================================== */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  background-color: var(--tg-theme-bg-color, #121212);
+  color: var(--tg-theme-text-color, #fff);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.app-container {
+  padding: 15px;
+}
+
+/* =================================== */
+/*      СТИЛИ ДЛЯ ГЛАВНОЙ СТРАНИЦЫ     */
+/* =================================== */
+.main-header {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.main-header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.main-header p {
+  color: var(--tg-theme-hint-color, #aaa);
+  font-size: 14px;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.menu-button {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--tg-theme-text-color, #fff);
+  transition: background-color 0.2s;
+}
+
+.menu-button:active {
+  background-color: #333;
+}
+
+.menu-button .button-icon {
+  margin-right: 12px;
+  font-size: 1.2em;
+}
+
+.button-text {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+/* =================================== */
+/*   ОБЩИЕ ЭЛЕМЕНТЫ (ШАПКА, КНОПКИ)   */
+/* =================================== */
+
+/* Простая шапка (используется в тюнере/тренажере) */
+.header-with-back {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-bottom: 1px solid #333;
+}
+
+.header-with-back h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+/* Шапка с центрированным заголовком (Grid) */
+.header-with-back-button {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 20px 16px;
+  gap: 16px;
+}
+
+.header-with-back-button h1 {
+  grid-column: 2;
+  margin: 0;
+  text-align: center;
+}
+
+/* --- ЕДИНЫЙ СТИЛЬ ДЛЯ ВСЕХ КНОПОК "НАЗАД" --- */
+.back-button {
+  /* Внешний вид (одинаковый для всех) */
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #3a3a3a;
+  color: #e0e0e0;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.back-button:hover {
+  background-color: #4a4a4a;
+  color: #ffffff;
+}
+
+.back-button:active {
+  transform: scale(0.97);
+}
+
+/* Позиционирование в Grid-шапке */
+.header-with-back-button .back-button {
+  grid-column: 1;
+  justify-self: start;
+}
+
+/* Позиционирование в Flex-шапке (тюнер/тренажер) */
+.header-with-back .back-button {
+  margin-right: 15px;
+}
+
+/* =================================== */
+/*      СТИЛИ СТРАНИЦЫ УПРАЖНЕНИЙ      */
+/* =================================== */
+.main-category-title {
+  font-size: 22px;
+  margin-bottom: 10px;
+  color: var(--tg-theme-text-color, #fff);
+  border-bottom: 2px solid var(--tg-theme-button-color, #007bff);
+  padding-bottom: 5px;
+}
+
+.sub-category-title {
+  font-size: 18px;
+  margin-top: 25px;
+  margin-bottom: 10px;
+  color: var(--tg-theme-hint-color, #aaa);
+}
+
+.exercise-item {
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.exercise-header {
+  padding: 15px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+}
+
+.indicator {
+  font-size: 20px;
+  color: var(--tg-theme-hint-color, #aaa);
+  transition: transform 0.3s ease;
+}
+
+.exercise-item.active .indicator {
+  transform: rotate(45deg);
+}
+
+.exercise-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+  padding: 0 20px;
+  font-size: 15px;
+  color: #e0e0e0;
+}
+
+.exercise-item.active .exercise-content {
+  padding: 10px 20px 20px;
+}
+
+.exercise-section {
+  margin-top: 15px;
+}
+.exercise-section:first-child {
+  margin-top: 0;
+}
+
+.exercise-content h4 {
+  margin: 0 0 5px 0;
+  font-size: 16px;
+  color: var(--tg-theme-text-color, #fff);
+  font-weight: 600;
+}
+
+.exercise-content p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.exercise-content ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.exercise-content ol li {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.exercise-content ol li:last-child {
+  margin-bottom: 0;
+}
+
+/* =================================== */
+/*      СТИЛИ ДЛЯ МЕНЮ ТРЕНАЖЕРА       */
+/* =================================== */
+
+.trainer-card {
+  /* Базовые стили */
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 15px;
+
+  /* Улучшения дизайна */
+  padding: 20px; /* Увеличены отступы */
+  border: 1px solid #2a2a2a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.trainer-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.trainer-card-title {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0; /* Убраны лишние отступы */
+  padding-bottom: 15px;
+  border-bottom: 1px solid #333;
+  color: var(--tg-theme-text-color, #fff);
+}
+
+.trainer-card-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.control-group-label {
+  font-size: 14px;
+  color: var(--tg-theme-hint-color, #b0b0b0);
+  font-weight: 500;
+}
+
+.control-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.control-selector button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #555;
+  background-color: #333;
+  color: var(--tg-theme-text-color, #fff);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.control-selector button:hover {
+  background-color: #444;
+}
+
+.control-selector button:active {
+  background-color: #555;
+  transform: scale(0.95);
+}
+
+.control-display {
+  font-size: 16px;
+  font-weight: bold;
+  width: 70px;
+  text-align: center;
+}
+
+.start-trainer-button {
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 8px;
+  background-color: var(--tg-theme-button-color, #007bff);
+  color: var(--tg-theme-button-text-color, #fff);
+
+  /* Исправление и улучшения */
+  box-sizing: border-box; /* Предотвращает "вылезание" кнопки */
+  padding: 14px;
+  font-size: 17px;
+  font-weight: 600;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.start-trainer-button:hover {
+  background-color: #0069d9;
+}
+
+.start-trainer-button:active {
+  background-color: #0056b3;
+  transform: scale(0.98);
+}
+
+/* =================================== */
+/*   НОВЫЙ БЛОК: СТИЛИ ДЛЯ ОШИБОК      */
+/* =================================== */
+.error-container {
+  padding: 20px;
+  text-align: center;
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-radius: 12px;
+  margin: 20px 15px 0;
+  border: 1px solid #dc3545;
+}
+.error-container h2 {
+  margin-top: 0;
+  color: #dc3545;
+}
+.error-container p {
+  color: var(--tg-theme-hint-color, #aaa);
+  line-height: 1.5;
+}
+.button-link {
+  display: inline-block;
+  margin-top: 15px;
+  padding: 10px 20px;
+  background-color: var(--tg-theme-button-color, #007bff);
+  color: var(--tg-theme-button-text-color, #fff);
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 500;
+}

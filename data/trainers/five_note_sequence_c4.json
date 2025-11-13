@@ -1,0 +1,15 @@
+{
+  "title": "Пятинотка (от До)",
+  "description": "Пропойте 5 нот вверх и вниз на слог 'Ма'.",
+  "notes": [
+    { "noteName": "C4" },
+    { "noteName": "D4" },
+    { "noteName": "E4" },
+    { "noteName": "F4" },
+    { "noteName": "G4" },
+    { "noteName": "F4" },
+    { "noteName": "E4" },
+    { "noteName": "D4" },
+    { "noteName": "C4" }
+  ]
+}

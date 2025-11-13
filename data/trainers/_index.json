@@ -1,0 +1,17 @@
+[
+  {
+    "id": "five_note_sequence_c4",
+    "title": "Пятинотка (от До)",
+    "baseNote": "C4"
+  },
+  {
+    "id": "major_arpeggio_g3",
+    "title": "Арпеджио (от Соль)",
+    "baseNote": "G3"
+  },
+  {
+    "id": "interval_major_third_f4",
+    "title": "Интервал: Большая терция (от Фа)",
+    "baseNote": "F4"
+  }
+]
