@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Асинхронная функция для загрузки и построения меню
   async function buildTrainerMenu() {
     try {
-      const response = await fetch("data/trainers/_index.json");
+      const response = await fetch("data/trainers/trainers_index.json");
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

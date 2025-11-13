@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("exercises-container");
-  const indexPath = "data/exercises/_index.json";
+  const indexPath = "data/exercises/exercises_index.json";
 
   if (!container) {
     console.error("Container element not found!");
