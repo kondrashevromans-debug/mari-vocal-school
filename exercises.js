@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       container.innerHTML = `
                 <header class="main-header header-with-back-button">
-                    <a href="main_vocal.html" class="back-button">← Назад</a>
+                    <a href="index.html" class="back-button">← Назад</a>
                     <h1>Разделы упражнений</h1>
                 </header>
                 <div class="menu"></div>
