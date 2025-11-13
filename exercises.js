@@ -35,7 +35,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       categoriesIndex.forEach((category) => {
         const link = document.createElement("a");
-        link.href = `?category=${category.id}`;
+        link.href = `exercises.html?category=${category.id}`;
+
         link.className = "menu-button";
         link.innerHTML = `
                     <span class="button-icon">${category.icon}</span>
