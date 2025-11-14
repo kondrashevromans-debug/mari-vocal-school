@@ -88,7 +88,7 @@ body {
 .header-with-back {
   display: flex;
   align-items: center;
-  padding: 10px 15px;
+  padding: 15px 15px 10px 15px;
   background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
   border-bottom: 1px solid #333;
 }
@@ -659,4 +659,102 @@ body {
 .complete-button.completed {
   background-color: #28a745; /* Зеленый цвет для выполненных */
   color: #fff;
+}
+/* =================================== */
+/*   СТИЛИ ДЛЯ ЕЖЕДНЕВНОЙ ПРАКТИКИ      */
+/* =================================== */
+#daily-practice-container h2 {
+  margin-top: 0;
+}
+
+.daily-stage {
+  margin-top: 25px;
+  padding-top: 15px;
+  border-top: 1px solid #333;
+}
+
+.daily-stage h3 {
+  margin-top: 0;
+  color: var(--tg-theme-hint-color, #aaa);
+}
+
+.daily-exercise {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.daily-exercise input[type="checkbox"] {
+  flex-shrink: 0;
+  margin-top: 5px;
+  margin-right: 12px;
+  width: 20px;
+  height: 20px;
+}
+
+.daily-exercise label {
+  font-size: 16px;
+}
+
+.daily-exercise label p {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.daily-exercise .what-to-do {
+  color: #e0e0e0;
+}
+
+.daily-exercise .why {
+  color: var(--tg-theme-hint-color, #aaa);
+  font-style: italic;
+}
+
+.daily-practice-footer {
+  position: sticky;
+  bottom: 0;
+  padding: 15px;
+  margin: 20px -15px -15px -15px;
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-top: 1px solid #333;
+  text-align: center;
+}
+
+.main-advice {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--tg-theme-hint-color, #aaa);
+  margin: 0 0 15px 0;
+}
+
+.complete-daily-button {
+  width: 100%;
+  padding: 14px;
+  font-size: 17px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  background-color: var(--tg-theme-button-color, #007bff);
+  color: var(--tg-theme-button-text-color, #fff);
+  transition: background-color 0.2s;
+}
+
+.complete-daily-button.completed {
+  background-color: #28a745;
+  cursor: not-allowed;
+}
+/* Стили для карточки ежедневной практики */
+.daily-practice-card {
+  border-color: var(--tg-theme-button-color, #007bff);
+}
+
+.daily-practice-card.completed {
+  border-color: #28a745;
+  opacity: 0.8;
+}
+
+.daily-practice-card .arrow-icon {
+  font-size: 28px;
 }

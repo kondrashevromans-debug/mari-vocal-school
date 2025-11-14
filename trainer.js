@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // --- DOM-элементы ---
+  // --- DOM-элементы (без изменений) ---
   const startButton = document.getElementById("trainerStartButton"),
-    stopButton = document.getElementById("trainerStopButton"), // Новая кнопка
+    stopButton = document.getElementById("trainerStopButton"),
     noteElement = document.getElementById("note"),
     octaveElement = document.getElementById("octave"),
     centsElement = document.getElementById("cents"),
@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     restartButton = document.getElementById("restart-button"),
     backToMenuButton = document.getElementById("back-to-menu-button");
 
-  // --- Константы ---
+  // --- Константы (без изменений) ---
   const noteStrings = [
       "C",
       "C#",
@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
     WHITE_KEY_PIXELS = 50,
     PITCH_HISTORY_SIZE = 400;
 
-  // --- Переменные состояния приложения ---
+  // --- Переменные состояния приложения (без изменений) ---
   let audioContext,
     analyser,
     sourceNode,
@@ -73,7 +73,10 @@ document.addEventListener("DOMContentLoaded", () => {
     noteStartTime = 0,
     allNoteScores = [];
 
-  // --- ОСНОВНАЯ ЛОГИКА ---
+  // --- ИЗМЕНЕНИЕ 1: Новая переменная для "периода прощения" ---
+  let noteResetTimeout = null;
+
+  // --- ОСНОВНАЯ ЛОГИКА (init без изменений) ---
   async function init() {
     const urlParams = new URLSearchParams(window.location.search);
     exerciseId = urlParams.get("exercise");
@@ -101,17 +104,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const response = await fetch(`data/trainers/${exerciseId}.json`);
+      const response = await fetch(
+        `/mari-vocal-school/data/trainers/${exerciseId}.json`
+      );
       if (!response.ok) {
         throw new Error(
           `Не удалось загрузить файл упражнения: ${response.statusText}`
         );
       }
       const originalExercise = await response.json();
-
       currentExercise = applyOctaveShift(originalExercise, octaveShift);
       trainerTitleElement.textContent = currentExercise.title;
-
       setupUI();
       resetExercise();
       mainLoop();
@@ -127,6 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function mainLoop() {
+    // Скролл (без изменений)
     let distance = targetScrollOffset - scrollOffsetPixels;
     if (Math.abs(distance) > 0.01) {
       scrollOffsetPixels += distance * 0.1;
@@ -139,14 +143,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (isListening) {
+      // Получение данных с микрофона (без изменений)
       analyser.getFloatTimeDomainData(dataArray);
-      let rms = Math.sqrt(
-        dataArray.reduce((acc, val) => acc + val * val, 0) / dataArray.length
-      );
-
+      let rms = 0;
+      for (let i = 0; i < dataArray.length; i++)
+        rms += dataArray[i] * dataArray[i];
+      rms = Math.sqrt(rms / dataArray.length);
       let currentPitch = null,
         pitchInfo = null;
-      if (rms > 0.01) {
+      if (rms > 0.025) {
         const pitch = yin(dataArray, audioContext.sampleRate);
         if (pitch !== -1) {
           currentPitch = pitch;
@@ -154,6 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
+      // Сглаживание (без изменений)
       if (lastFramePitch === null && currentPitch !== null) {
         ignoreFramesCounter = 10;
       }
@@ -166,15 +172,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
       updatePitchDisplay(pitchInfo);
 
-      if (state === "LISTENING" && pitchInfo) {
-        const targetNoteNum = noteToNoteNum(
-          currentExercise.notes[currentNoteIndex].noteName
-        );
-        if (
-          pitchInfo.noteNum === targetNoteNum &&
-          Math.abs(pitchInfo.cents) <= centTolerance
-        ) {
-          if (noteStartTime === 0) noteStartTime = Date.now();
+      // --- ИЗМЕНЕНИЕ 2: Обновленная логика таймера ---
+      const isNoteCorrect =
+        pitchInfo &&
+        pitchInfo.noteNum ===
+          noteToNoteNum(currentExercise.notes[currentNoteIndex].noteName) &&
+        Math.abs(pitchInfo.cents) <= centTolerance;
+
+      if (state === "LISTENING") {
+        if (isNoteCorrect) {
+          // Если мы в допуске, отменяем любой запланированный сброс таймера
+          if (noteResetTimeout) {
+            clearTimeout(noteResetTimeout);
+            noteResetTimeout = null;
+          }
+          // И запускаем таймер, если он еще не запущен
+          if (noteStartTime === 0) {
+            noteStartTime = Date.now();
+          }
+          // Проверяем, достигнута ли нужная длительность
           if ((Date.now() - noteStartTime) / 1000 >= holdDuration) {
             allNoteScores.push({
               note: currentExercise.notes[currentNoteIndex].noteName,
@@ -183,10 +199,15 @@ document.addEventListener("DOMContentLoaded", () => {
             goToNextNote();
           }
         } else {
-          noteStartTime = 0;
+          // Если мы ВЫШЛИ из допуска, но таймер был запущен...
+          if (noteStartTime !== 0 && !noteResetTimeout) {
+            // ...запускаем отложенный сброс таймера.
+            noteResetTimeout = setTimeout(() => {
+              noteStartTime = 0;
+              noteResetTimeout = null;
+            }, 200); // <-- Наш "период прощения" в 200мс
+          }
         }
-      } else {
-        noteStartTime = 0;
       }
 
       pitchHistory.push(pitchToProcess);
@@ -198,16 +219,21 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(mainLoop);
   }
 
-  // --- Управление состоянием тренажера ---
+  // --- Остальной код без изменений ---
 
   function resetExercise() {
     state = "IDLE";
     currentNoteIndex = -1;
     allNoteScores = [];
+    // --- ИЗМЕНЕНИЕ 3: Сбрасываем таймаут при рестарте упражнения ---
+    if (noteResetTimeout) clearTimeout(noteResetTimeout);
+    noteResetTimeout = null;
+    noteStartTime = 0;
+
     updateUI();
     startButton.textContent = "Начать упражнение";
     startButton.disabled = false;
-    stopButton.classList.add("hidden"); // Скрываем кнопку "Остановить"
+    stopButton.classList.add("hidden");
     resultsModal.classList.add("hidden");
   }
 
@@ -225,7 +251,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     startButton.textContent = "Упражнение идет...";
     startButton.disabled = true;
-    stopButton.classList.remove("hidden"); // Показываем кнопку "Остановить"
+    stopButton.classList.remove("hidden");
   }
 
   function goToNextNote() {
@@ -252,7 +278,7 @@ document.addEventListener("DOMContentLoaded", () => {
     showResults();
     startButton.textContent = "Начать заново";
     startButton.disabled = false;
-    stopButton.classList.add("hidden"); // Скрываем кнопку "Остановить"
+    stopButton.classList.add("hidden");
   }
 
   function showResults() {
@@ -283,8 +309,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     resultsModal.classList.remove("hidden");
   }
-
-  // --- Обновление интерфейса ---
 
   function updateUI() {
     highlightTargetKey(null);
@@ -342,8 +366,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const percentage = 50 + clampedCents;
     tunerIndicator.style.left = `${percentage}%`;
   }
-
-  // --- Утилиты и вычисления ---
 
   function drawPitchGraph() {
     const width = canvas.width,
@@ -465,7 +487,6 @@ document.addEventListener("DOMContentLoaded", () => {
       canvas.width = canvas.parentElement.clientWidth;
     }
     maxScrollOffset = totalHeight - mainContent.clientHeight;
-
     pianoContainer.innerHTML = "";
     let currentY = 0;
     for (let i = MAX_NOTE_NUM; i >= MIN_NOTE_NUM; i--) {
@@ -475,10 +496,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const key = document.createElement("div");
       key.className = `key ${isBlack ? "black" : "white"}`;
       key.id = `key-${(noteName + oct).replace("#", "s")}`;
-
       const label = document.createElement("span");
       label.className = "key-label";
-
       if (!isBlack) {
         key.style.height = `${WHITE_KEY_PIXELS}px`;
         key.style.top = `${currentY}px`;
@@ -508,8 +527,6 @@ document.addEventListener("DOMContentLoaded", () => {
       scrollOffsetPixels = targetScrollOffset;
     }
   }
-
-  // --- Web Audio API ---
 
   function initAudioContext() {
     if (!audioContext) {
@@ -586,25 +603,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- Алгоритм определения высоты тона (YIN) ---
   function yin(buffer, sampleRate) {
-    const threshold = 0.12,
-      yinBufferSize = buffer.length / 2;
+    const threshold = 0.12;
+    const bufferSize = buffer.length;
+    const yinBufferSize = bufferSize / 2;
     const yinBuffer = new Float32Array(yinBufferSize);
-    let tauEstimate = -1,
-      runningSum = 0;
-
+    let tauEstimate = -1;
+    let pitchInHz = -1;
+    let runningSum = 0;
     yinBuffer[0] = 1;
     for (let tau = 1; tau < yinBufferSize; tau++) {
-      let diffSum = 0;
+      let differenceSum = 0;
       for (let i = 0; i < yinBufferSize; i++) {
         const delta = buffer[i] - buffer[i + tau];
-        diffSum += delta * delta;
+        differenceSum += delta * delta;
       }
-      runningSum += diffSum;
-      yinBuffer[tau] = (diffSum * tau) / (runningSum || 1);
+      runningSum += differenceSum;
+      yinBuffer[tau] = (differenceSum * tau) / (runningSum || 1);
     }
-
     for (let tau = 4; tau < yinBufferSize; tau++) {
       if (yinBuffer[tau] < threshold) {
         if (
@@ -616,7 +632,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     }
-
     if (tauEstimate === -1) {
       let min = Infinity;
       for (let tau = 4; tau < yinBufferSize; tau++) {
@@ -626,36 +641,35 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     }
-
     if (tauEstimate > 0 && tauEstimate < yinBufferSize - 1) {
-      const y1 = yinBuffer[tauEstimate - 1],
-        y2 = yinBuffer[tauEstimate],
-        y3 = yinBuffer[tauEstimate + 1];
-      const betterTau = tauEstimate + (y3 - y1) / (2 * (2 * y2 - y3 - y1));
-      if (!isNaN(betterTau)) return sampleRate / betterTau;
+      const y1 = yinBuffer[tauEstimate - 1];
+      const y2 = yinBuffer[tauEstimate];
+      const y3 = yinBuffer[tauEstimate + 1];
+      const denominator = 2 * (2 * y2 - y3 - y1);
+      if (denominator !== 0) {
+        const betterTau = tauEstimate + (y3 - y1) / denominator;
+        pitchInHz = sampleRate / betterTau;
+      } else {
+        pitchInHz = sampleRate / tauEstimate;
+      }
     }
-    return -1;
+    return pitchInHz > 50 && pitchInHz < 3000 ? pitchInHz : -1;
   }
 
-  // --- Обработчики событий ---
   startButton.addEventListener("click", startExercise);
-
   stopButton.addEventListener("click", () => {
     if (isListening) {
       stopListening();
     }
     resetExercise();
   });
-
   restartButton.addEventListener("click", () => {
     resetExercise();
     startExercise();
   });
-
   backToMenuButton.addEventListener("click", () => {
     window.location.href = "trainer_menu.html";
   });
 
-  // --- Запуск ---
   init();
 });

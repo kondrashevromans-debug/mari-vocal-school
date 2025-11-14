@@ -1,7 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("tracks-list-container");
 
-  // Элементы общего прогресс-бара
   const totalProgressContainer = document.getElementById(
     "total-progress-container"
   );
@@ -10,12 +9,23 @@ document.addEventListener("DOMContentLoaded", () => {
     "total-progress-bar-fill"
   );
 
+  // Функция для получения сегодняшней даты в формате YYYY-MM-DD
+  const getTodayDate = () => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(today.getDate()).padStart(2, "0")}`;
+  };
+
   async function main() {
     try {
       const response = await fetch("/mari-vocal-school/data/tracks_data.json");
       if (!response.ok) throw new Error("Не удалось загрузить список треков");
       const data = await response.json();
 
+      // Сначала отображаем карточку ежедневной практики, затем все остальное
+      displayDailyPracticeCard();
       displayTrackList(data);
       calculateAndShowTotalProgress(data);
     } catch (error) {
@@ -24,8 +34,40 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function displayDailyPracticeCard() {
+    const lastCompletedDate = localStorage.getItem("lastCompletedDaily");
+    const isCompletedToday = lastCompletedDate === getTodayDate();
+
+    const statusText = isCompletedToday
+      ? "Выполнено сегодня 🎉"
+      : "Чек-лист на сегодня";
+    const statusIcon = isCompletedToday ? "✅" : "🗓️";
+
+    // Создаем заголовок для секции
+    const partHeader = document.createElement("div");
+    partHeader.className = "track-part-header";
+    partHeader.innerHTML = `<h2>Ежедневная практика</h2>`;
+    container.appendChild(partHeader);
+
+    const dailyCard = document.createElement("a");
+    dailyCard.className = "track-card daily-practice-card"; // Добавляем спец. класс для стилизации
+    if (isCompletedToday) {
+      dailyCard.classList.add("completed");
+    }
+    dailyCard.href = `daily_practice.html`;
+
+    dailyCard.innerHTML = `
+      <div class="track-card-text">
+        <h3>${statusText}</h3>
+        <p>Быстрый 10-минутный комплекс для поддержания голоса в тонусе.</p>
+      </div>
+      <span class="arrow-icon">${statusIcon}</span>
+    `;
+
+    container.appendChild(dailyCard);
+  }
+
   function displayTrackList(data) {
-    container.innerHTML = "";
     for (const partKey in data) {
       const part = data[partKey];
 
@@ -59,7 +101,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let totalExercises = 0;
     const modulePaths = new Set();
 
-    // 1. Собираем пути ко всем уникальным модулям
     for (const partKey in data) {
       for (const trackId in data[partKey].tracks) {
         data[partKey].tracks[trackId].modules.forEach((module) => {
@@ -68,19 +109,16 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 2. Параллельно загружаем все модули и считаем упражнения
-    const exerciseCountPromises = Array.from(modulePaths).map(
-      (path) =>
-        fetch(path)
-          .then((res) => res.json())
-          .then((exercises) => exercises.length)
-          .catch(() => 0) // Если модуль не загрузился, считаем, что в нем 0 упражнений
+    const exerciseCountPromises = Array.from(modulePaths).map((path) =>
+      fetch(path)
+        .then((res) => res.json())
+        .then((exercises) => exercises.length)
+        .catch(() => 0)
     );
 
     const counts = await Promise.all(exerciseCountPromises);
     totalExercises = counts.reduce((sum, count) => sum + count, 0);
 
-    // 3. Считаем все выполненные упражнения из localStorage
     let totalCompleted = 0;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -90,7 +128,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 4. Отображаем результат
     if (totalExercises > 0) {
       totalProgressContainer.style.display = "block";
       totalProgressLabel.textContent = `${totalCompleted}/${totalExercises}`;
