@@ -377,3 +377,286 @@ body {
   border-radius: 8px;
   font-weight: 500;
 }
+/* =================================== */
+/*   СТИЛИ ДЛЯ СТРАНИЦЫ ВЫБОРА ЦЕЛЕЙ   */
+/* =================================== */
+.goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.goal-card {
+  display: flex;
+  align-items: flex-start;
+  padding: 20px;
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--tg-theme-text-color, #fff);
+  transition: background-color 0.2s, transform 0.2s;
+  border: 1px solid #2a2a2a;
+}
+
+.goal-card:active {
+  background-color: #333;
+  transform: scale(0.98);
+}
+
+.goal-card-icon {
+  font-size: 28px;
+  margin-right: 16px;
+  margin-top: 4px;
+}
+
+.goal-card-text h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.goal-card-text p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--tg-theme-hint-color, #aaa);
+  line-height: 1.5;
+}
+
+/* =================================== */
+/*   СТИЛИ ДЛЯ СТРАНИЦЫ СПИСКА ТРЕКОВ   */
+/* =================================== */
+.tracks-list-view {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.track-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--tg-theme-text-color, #fff);
+  border: 1px solid #2a2a2a;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.track-card:active {
+  background-color: #333;
+  transform: scale(0.98);
+}
+
+.track-card-text h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.track-card-text p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--tg-theme-hint-color, #aaa);
+  line-height: 1.5;
+}
+
+.track-card .arrow-icon {
+  font-size: 24px;
+  color: var(--tg-theme-hint-color, #aaa);
+  margin-left: 15px;
+}
+
+/* =================================== */
+/*   СТИЛИ ДЛЯ ГАРМОШКИ УПРАЖНЕНИЙ     */
+/* =================================== */
+.exercises-accordion {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exercise-item-nested {
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #2a2a2a;
+}
+
+.exercise-item-nested.locked {
+  opacity: 0.7;
+}
+
+.exercise-header-nested {
+  padding: 15px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+}
+
+.indicator-nested {
+  font-size: 20px;
+  color: var(--tg-theme-hint-color, #aaa);
+  transition: transform 0.3s ease;
+}
+
+.exercise-item-nested.active .indicator-nested {
+  transform: rotate(45deg);
+}
+
+.exercise-content-nested {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+  padding: 0 15px;
+  font-size: 15px;
+  color: #e0e0e0;
+  line-height: 1.6;
+}
+
+.exercise-item-nested.active .exercise-content-nested {
+  max-height: 1500px; /* Большое значение для раскрытия */
+  padding: 0 15px 15px 15px;
+  border-top: 1px solid #333;
+}
+
+.exercise-content-nested h4 {
+  margin: 10px 0 5px 0;
+  font-size: 16px;
+  color: var(--tg-theme-text-color, #fff);
+  font-weight: 600;
+}
+.exercise-content-nested h4:first-child {
+  margin-top: 0;
+}
+
+.exercise-content-nested p,
+.exercise-content-nested ol {
+  margin: 0;
+}
+.exercise-content-nested ol {
+  padding-left: 20px;
+}
+.exercise-content-nested li {
+  margin-bottom: 8px;
+}
+
+/* Сообщение о VIP-доступе */
+.vip-lock-message {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.vip-lock-message .lock-icon {
+  font-size: 24px;
+}
+.vip-lock-message h4 {
+  margin: 0 0 4px 0;
+  color: #f0e68c; /* Хаки / золотистый */
+}
+.vip-lock-message p {
+  font-size: 13px;
+  margin: 0;
+}
+/* Стили для заголовков частей на странице tracks.html */
+.track-part-header {
+  margin-top: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #444;
+}
+.track-part-header:first-child {
+  margin-top: 0;
+}
+.track-part-header h2 {
+  margin: 0 0 5px 0;
+  font-size: 22px;
+}
+.track-part-header p {
+  margin: 0;
+  color: var(--tg-theme-hint-color, #aaa);
+}
+
+/* Стили для заголовков модулей на странице track_detail.html */
+.module-title {
+  font-size: 18px;
+  color: var(--tg-theme-hint-color, #aaa);
+  margin-top: 25px;
+  margin-bottom: 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #333;
+}
+.exercises-accordion .module-title:first-child {
+  margin-top: 0;
+}
+/* =================================== */
+/*   СТИЛИ ДЛЯ ПРОГРЕСС-БАРА И КНОПОК   */
+/* =================================== */
+
+.progress-container {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-radius: 12px;
+}
+
+.progress-text {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tg-theme-hint-color, #aaa);
+}
+
+#progress-label {
+  font-weight: 600;
+  color: var(--tg-theme-text-color, #fff);
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: #333;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: 0%; /* Начальная ширина */
+  background-color: var(--tg-theme-button-color, #007bff);
+  border-radius: 4px;
+  transition: width 0.5s ease-in-out;
+}
+
+.complete-button-container {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #333;
+}
+
+.complete-button {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  background-color: #3a3a3a;
+  color: #e0e0e0;
+}
+
+.complete-button.completed {
+  background-color: #28a745; /* Зеленый цвет для выполненных */
+  color: #fff;
+}

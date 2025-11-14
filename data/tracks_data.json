@@ -1,0 +1,98 @@
+{
+  "part1_foundation": {
+    "title": "Часть 1: Фундамент 360°",
+    "description": "Обязательные базовые модули для всех учеников.",
+    "tracks": {
+      "foundation_main": {
+        "title": "Фундамент 360°",
+        "description": "Основа вашего свободного голоса. Пройдите эти модули в первую очередь.",
+        "modules": [
+          {
+            "title": "Расслабление Лица",
+            "path": "/mari-vocal-school/data/modules/foundation_face.json"
+          },
+          {
+            "title": "Расслабление Шеи",
+            "path": "/mari-vocal-school/data/modules/foundation_neck.json"
+          },
+          {
+            "title": "Расслабление Языка",
+            "path": "/mari-vocal-school/data/modules/foundation_tongue.json"
+          },
+          {
+            "title": "Базовое Диафрагмальное Дыхание",
+            "path": "/mari-vocal-school/data/modules/foundation_breathing.json"
+          },
+          {
+            "title": "Диагностика и Реабилитация Связок",
+            "path": "/mari-vocal-school/data/modules/foundation_ligaments.json"
+          }
+        ]
+      }
+    }
+  },
+  "part2_specialization": {
+    "title": "Часть 2: Треки Развития",
+    "description": "Выберите цель и углубите свои навыки.",
+    "tracks": {
+      "advanced_relax": {
+        "title": "Снятие зажимов",
+        "description": "Максимально глубокая проработка телесных блоков. Фокус на расслаблении и ощущениях.",
+        "modules": [
+          {
+            "title": "Углубленная работа с лицом и шеей",
+            "path": "/mari-vocal-school/data/modules/track_relax_face-neck.json"
+          },
+          {
+            "title": "Глубокое расслабление языка",
+            "path": "/mari-vocal-school/data/modules/track_relax_tongue.json"
+          },
+          {
+            "title": "Продвинутое дыхание для снятия стресса",
+            "path": "/mari-vocal-school/data/modules/track_relax_breathing.json"
+          },
+          {
+            "title": "Поиск природного тембра",
+            "path": "/mari-vocal-school/data/modules/track_relax_timbre.json"
+          }
+        ]
+      },
+      "confident_speech": {
+        "title": "Уверенная Речь",
+        "description": "Превращение свободного голоса в инструмент убеждения. Фокус на опоре, регистрах и интонации.",
+        "modules": [
+          {
+            "title": "Усиление опоры и контроля",
+            "path": "/mari-vocal-school/data/modules/track_speech_support.json"
+          },
+          {
+            "title": "Активация грудного регистра",
+            "path": "/mari-vocal-school/data/modules/track_speech_register.json"
+          },
+          {
+            "title": "Четкость дикции",
+            "path": "/mari-vocal-school/data/modules/track_speech_diction.json"
+          }
+        ]
+      },
+      "pro_vocal": {
+        "title": "Профессиональный Вокал",
+        "description": "Развитие вокальной техники. Фокус на диапазоне, попадании в ноты, управлении тембром.",
+        "modules": [
+          {
+            "title": "Развитие диапазона",
+            "path": "/mari-vocal-school/data/modules/track_vocal_range.json"
+          },
+          {
+            "title": "Координация слуха и голоса",
+            "path": "/mari-vocal-school/data/modules/track_vocal_coordination.json"
+          },
+          {
+            "title": "Управление смыканием и резонаторами",
+            "path": "/mari-vocal-school/data/modules/track_vocal_control.json"
+          }
+        ]
+      }
+    }
+  }
+}
