@@ -28,6 +28,7 @@ body {
 
 .app-container {
   padding: 15px;
+  padding-top: 75px;
 }
 
 /* =================================== */
@@ -91,6 +92,13 @@ body {
   padding: 15px 15px 10px 15px;
   background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
   border-bottom: 1px solid #333;
+
+  /* --- ИЗМЕНЕНИЕ: Делаем шапку "липкой" --- */
+  position: fixed; /* Меняем на fixed для надежности */
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100; /* Чтобы шапка была поверх контента */
 }
 
 .header-with-back h2 {
@@ -105,6 +113,16 @@ body {
   align-items: center;
   padding: 20px 16px;
   gap: 16px;
+  /* --- ИЗМЕНЕНИЕ: Делаем эту шапку тоже "липкой" --- */
+  position: fixed; /* Меняем на fixed */
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background-color: var(
+    --tg-theme-bg-color,
+    #121212
+  ); /* Добавляем фон, чтобы контент не просвечивал */
 }
 
 .header-with-back-button h1 {
@@ -714,11 +732,13 @@ body {
 .daily-practice-footer {
   position: sticky;
   bottom: 0;
-  padding: 15px;
-  margin: 20px -15px -15px -15px;
+  /* --- ИЗМЕНЕНИЕ: Добавляем отступы, особенно снизу --- */
+  padding: 15px 15px calc(40px + env(safe-area-inset-bottom));
+  margin: 20px -15px 0 -15px; /* Убираем отрицательный отступ снизу */
   background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
   border-top: 1px solid #333;
   text-align: center;
+  z-index: 50; /* Добавляем z-index на всякий случай */
 }
 
 .main-advice {
