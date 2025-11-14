@@ -28,7 +28,6 @@ body {
 
 .app-container {
   padding: 15px;
-  padding-top: 75px;
 }
 
 /* =================================== */
@@ -777,4 +776,29 @@ body {
 
 .daily-practice-card .arrow-icon {
   font-size: 28px;
+}
+/* =================================== */
+/*   ПЕРСОНАЛЬНЫЕ ОТСТУПЫ ДЛЯ СТРАНИЦ  */
+/* =================================== */
+
+/* Отступ для страницы списка треков (УПРАЖНЕНИЯ) */
+.page-tracks .app-container {
+  margin-top: 60px; /* Небольшой отступ, чтобы прогресс-бар не прилипал к шапке */
+}
+
+/* Отступ для страницы ежедневной практики */
+.page-daily-practice .app-container {
+  margin-top: 135px; /* Твое значение, которое ты подобрал! */
+}
+
+.page-trainer .app-container {
+  margin-top: 135px; /* Отступ для страницы тренажера */
+}
+
+.page-trainer-menu .app-container {
+  margin-top: 65px; /* Отступ для страницы меню тренажера */
+}
+
+.page-track-detail .app-container {
+  margin-top: 95px; /* Отступ для страницы деталей трека */
 }
