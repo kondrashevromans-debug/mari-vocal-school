@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <base href="/mari-vocal-school/" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Упражнения трека</title>
+    <link rel="stylesheet" href="style.css?v=12" />
+  </head>
+  <body>
+    <div class="app-container">
+      <header class="header-with-back-button">
+        <a href="tracks.html" class="back-button">← К трекам</a>
+        <h1 id="track-title">Загрузка...</h1>
+      </header>
+
+      <!-- НОВЫЙ БЛОК ПРОГРЕССА -->
+      <div
+        id="progress-container"
+        class="progress-container"
+        style="display: none"
+      >
+        <div class="progress-text">
+          <span>Прогресс</span>
+          <span id="progress-label">0/0</span>
+        </div>
+        <div class="progress-bar">
+          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+        </div>
+      </div>
+
+      <main id="exercises-container" class="exercises-accordion"></main>
+    </div>
+
+    <script src="track_detail.js"></script>
+  </body>
+</html>
