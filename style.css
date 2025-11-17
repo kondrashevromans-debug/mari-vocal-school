@@ -863,7 +863,11 @@ body {
 
 /* НОВЫЙ отступ для страницы избранного */
 .page-favorites .app-container {
-  margin-top: 65px;
+  margin-top: 95px;
+}
+
+.page-breathing-trainer .app-container {
+  margin-top: 95px;
 }
 /* =================================== */
 /*   СТИЛИ ДЛЯ ГЛАВНОЙ СТРАНИЦЫ (ДОП.) */
@@ -1070,6 +1074,7 @@ body {
   padding: 20px;
   box-sizing: border-box;
   text-align: center;
+  margin-top: 60px;
 }
 
 .pacer-circle {
