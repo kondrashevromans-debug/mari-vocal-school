@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <base href="/mari-vocal-school/" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Мои достижения</title>
+    <link rel="stylesheet" href="style.css?v=19" />
+  </head>
+  <body class="page-achievements">
+    <div class="app-container">
+      <header class="header-with-back-button">
+        <a href="index.html" class="back-button">← Назад</a>
+        <h1>Мои достижения</h1>
+      </header>
+      <div id="achievements-stats">0/0</div>
+      <main id="achievements-container"></main>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/data_service.js"></script>
+    <script src="js/achievements_engine.js"></script>
+    <!-- ИЗМЕНЕНИЕ: Добавлен параметр версии для сброса кэша -->
+    <script src="js/achievements.js?v=2"></script>
+
+    <script>
+      window.TimeTracker.init();
+    </script>
+
+    <div id="achievement-toast">
+      <div class="toast-icon">🏆</div>
+      <div class="toast-text-content">
+        <p class="toast-main-title">Достижение получено!</p>
+        <p id="toast-achievement-title">Название достижения</p>
+      </div>
+    </div>
+  </body>
+</html>

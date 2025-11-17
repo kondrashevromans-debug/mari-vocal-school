@@ -71,6 +71,22 @@
     </div>
 
     <!-- ИЗМЕНЕНА ВЕРСИЯ СКРИПТА -->
-    <script src="trainer.js?v=11" defer></script>
+    <script src="js/utils.js"></script>
+    <script src="js/data_service.js"></script>
+    <!-- ДОБАВЛЕНА ЭТА СТРОКА -->
+    <script src="js/achievements_engine.js"></script>
+    <script src="js/trainer.js?v=11" defer></script>
+    <!-- --- HTML-КОД ДЛЯ УВЕДОМЛЕНИЯ ОБ АЧИВКЕ --- -->
+    <div id="achievement-toast">
+      <div class="toast-icon">🏆</div>
+      <div class="toast-text-content">
+        <p class="toast-main-title">Достижение получено!</p>
+        <p id="toast-achievement-title">Название достижения</p>
+      </div>
+    </div>
+    <!-- --- КОНЕЦ БЛОКА УВЕДОМЛЕНИЯ --- -->
+    <script>
+      window.TimeTracker.init();
+    </script>
   </body>
 </html>

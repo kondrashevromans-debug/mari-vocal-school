@@ -1,22 +1,22 @@
+// --- START OF FILE daily_practice.js ---
+
 document.addEventListener("DOMContentLoaded", async () => {
   const container = document.getElementById("daily-practice-container");
   const adviceEl = document.getElementById("main-advice");
   const completeButton = document.getElementById("complete-daily-button");
 
   const storageKey = "lastCompletedDaily";
+  const streakKey = "dailyStreak";
+  const perfectWeekKey = "perfectWeekCounter";
 
-  const getTodayDate = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const day = String(today.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
+  const today = new Date();
+  const todayDate = Utils.formatDate(today);
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayDate = Utils.formatDate(yesterday);
 
   const lastCompletedDate = localStorage.getItem(storageKey);
-  const todayDate = getTodayDate();
-
-  // --- Логика кнопки и чекбоксов (НОВЫЙ БЛОК) ---
   let allCheckboxes = [];
 
   function checkAllCheckboxes() {
@@ -30,13 +30,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  function setButtonCompleted() {
+  function setButtonCompleted(message = "Отлично, до завтра!") {
     completeButton.classList.add("completed");
-    completeButton.textContent = "Отлично, до завтра!";
+    completeButton.textContent = message;
     completeButton.disabled = true;
   }
 
-  // Изначально кнопка неактивна
   completeButton.disabled = true;
   completeButton.textContent = "Отметьте все упражнения";
 
@@ -45,12 +44,62 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   completeButton.addEventListener("click", () => {
-    localStorage.setItem(storageKey, todayDate);
-    setButtonCompleted();
-    alert("Поздравляем с выполнением ежедневной практики!");
+    // --- ОБНОВЛЕННЫЙ БЛОК: Логика стриков и идеальной недели ---
+    const lastCompleted = localStorage.getItem(storageKey);
+    let currentStreak = parseInt(localStorage.getItem(streakKey)) || 0;
+    let perfectWeekCounter =
+      parseInt(localStorage.getItem(perfectWeekKey)) || 0;
+
+    if (lastCompleted !== todayDate) {
+      // Убедимся, что не нажимаем кнопку второй раз за день
+      if (lastCompleted === yesterdayDate) {
+        currentStreak++;
+        perfectWeekCounter++;
+      } else {
+        // Стрик прерван
+        currentStreak = 1;
+        perfectWeekCounter = 1;
+      }
+
+      // Проверка на воскресенье для сброса счетчика идеальной недели
+      // getDay() возвращает 0 для воскресенья
+      if (today.getDay() === 0) {
+        perfectWeekCounter = 0; // Сбрасываем в конце недели
+      }
+
+      localStorage.setItem(streakKey, currentStreak);
+      localStorage.setItem(perfectWeekKey, perfectWeekCounter);
+      localStorage.setItem(storageKey, todayDate);
+
+      // Проверка ачивки "Идеальная неделя"
+      if (perfectWeekCounter >= 7) {
+        localStorage.setItem("perfect_week_daily", new Date().toISOString());
+      }
+
+      // Проверка секретных ачивок
+      const hour = today.getHours();
+      if (hour >= 23 || hour < 1) {
+        localStorage.setItem("secret_night_owl", new Date().toISOString());
+      }
+      if (hour >= 4 && hour < 7) {
+        // Уточненное время для "ранней пташки"
+        localStorage.setItem("secret_early_bird", new Date().toISOString());
+      }
+      if (Utils.isPublicHoliday(today)) {
+        localStorage.setItem(
+          "secret_holiday_practice",
+          new Date().toISOString()
+        );
+      }
+
+      // Проверяем все остальные ачивки
+      AchievementsEngine.checkAndUnlock();
+    }
+
+    setButtonCompleted("Поздравляем! Ваш прогресс сохранен.");
+    // --- КОНЕЦ ОБНОВЛЕННОГО БЛОКА ---
   });
 
-  // --- Загрузка и отображение контента ---
   try {
     const response = await fetch("/mari-vocal-school/data/daily_practice.json");
     if (!response.ok) throw new Error("Не удалось загрузить данные");
@@ -90,16 +139,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     adviceEl.textContent = data.main_advice;
 
-    // --- Логика чекбоксов (НОВЫЙ БЛОК) ---
-    // После того, как все чекбоксы добавлены на страницу, находим их
     allCheckboxes = Array.from(document.querySelectorAll(".daily-checkbox"));
 
-    // Добавляем слушатель на каждый чекбокс
     allCheckboxes.forEach((checkbox) => {
       checkbox.addEventListener("change", checkAllCheckboxes);
     });
 
-    // Если комплекс уже выполнен сегодня, то делаем все чекбоксы отмеченными и неактивными
     if (lastCompletedDate === todayDate) {
       allCheckboxes.forEach((checkbox) => {
         checkbox.checked = true;

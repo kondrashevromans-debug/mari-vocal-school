@@ -1,5 +1,6 @@
 [
   {
+    "id": "track_speech_support_1",
     "title": "Короткие вдохи с шипящими (нарастание вдоха и выдоха)",
     "description": {
       "goal": "Раскачать объем легких, повысить дыхательную выносливость.",
@@ -11,6 +12,7 @@
     }
   },
   {
+    "id": "track_speech_support_2",
     "title": "Короткий вдох и надувание шарика",
     "description": {
       "goal": "Натренировать мощный, долгий и контролируемый выдох, укрепляя мышцы, отвечающие за опору.",
@@ -22,6 +24,7 @@
     }
   },
   {
+    "id": "track_speech_support_3",
     "tag": "[VIP]",
     "title": "Дыхание в планке",
     "description": {
@@ -34,6 +37,7 @@
     }
   },
   {
+    "id": "track_speech_support_4",
     "tag": "[VIP]",
     "title": "Дыхание с подъемом торса на спине",
     "description": {
@@ -48,6 +52,7 @@
     }
   },
   {
+    "id": "track_speech_support_5",
     "tag": "[VIP]",
     "title": "Дыхание с подъемом торса на животе",
     "description": {
@@ -61,6 +66,7 @@
     }
   },
   {
+    "id": "track_speech_support_6",
     "tag": "[VIP]",
     "title": "Дыхание с поднятыми ногами на спине",
     "description": {
@@ -75,6 +81,7 @@
     }
   },
   {
+    "id": "track_speech_support_7",
     "tag": "[VIP]",
     "title": "Дыхание с работой плечевого пояса стоя",
     "description": {

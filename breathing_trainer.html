@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <base href="/mari-vocal-school/" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Тренажер на дыхание</title>
+    <link rel="stylesheet" href="style.css?v=19" />
+  </head>
+  <body>
+    <header class="header-with-back-button">
+      <a href="index.html" class="back-button">← Назад</a>
+      <h1>Тренажер на дыхание</h1>
+    </header>
+
+    <div class="pacer-container">
+      <div id="pacer-circle" class="pacer-circle">
+        <span id="pacer-timer"></span>
+      </div>
+      <p id="pacer-prompt" class="pacer-prompt">
+        Настройте время и нажмите "Старт"
+      </p>
+
+      <div class="pacer-controls">
+        <div class="control-group">
+          <label for="inhale-duration">Вдох (сек)</label>
+          <input type="number" id="inhale-duration" value="4" min="1" />
+        </div>
+        <div class="control-group">
+          <label for="hold-duration">Задержка (сек)</label>
+          <input type="number" id="hold-duration" value="7" min="0" />
+        </div>
+        <div class="control-group">
+          <label for="exhale-duration">Выдох (сек)</label>
+          <input type="number" id="exhale-duration" value="8" min="1" />
+        </div>
+      </div>
+
+      <div class="pacer-buttons">
+        <button id="start-btn" class="pacer-button start">Старт</button>
+        <button id="stop-btn" class="pacer-button stop" style="display: none">
+          Стоп
+        </button>
+      </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/data_service.js"></script>
+    <script src="js/achievements_engine.js"></script>
+    <script src="js/breathing_trainer.js"></script>
+    <!-- --- HTML-КОД ДЛЯ УВЕДОМЛЕНИЯ ОБ АЧИВКЕ --- -->
+    <div id="achievement-toast">
+      <div class="toast-icon">🏆</div>
+      <div class="toast-text-content">
+        <p class="toast-main-title">Достижение получено!</p>
+        <p id="toast-achievement-title">Название достижения</p>
+      </div>
+    </div>
+    <!-- --- КОНЕЦ БЛОКА УВЕДОМЛЕНИЯ --- -->
+    <script>
+      window.TimeTracker.init();
+    </script>
+  </body>
+</html>

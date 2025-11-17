@@ -1,3 +1,5 @@
+--- START OF FILE tuner.html ---
+
 <!DOCTYPE html>
 <html lang="ru">
   <head>
@@ -24,7 +26,7 @@
           <span id="octave"></span>
           <button id="referenceToneButton" class="hidden">
             <svg
-              xmlns="http://www.w.org/2000/svg"
+              xmlns="http://www.w3.org/2000/svg"
               width="24"
               height="24"
               viewBox="0 0 24 24"
@@ -38,7 +40,6 @@
         </div>
         <div class="details-display">
           <div id="target-note-display"></div>
-          <!-- Этот элемент теперь будет показывать либо подсказку, либо отклонение -->
           <div id="cents">Отклонение: --- cents</div>
           <div class="tuner-container">
             <div class="tuner-bar">
@@ -71,12 +72,11 @@
         <div class="main-controls">
           <button id="startButton">Начать</button>
           <button id="holdButton">Заморозить</button>
-          <!-- ИЗМЕНЕНИЕ: Убрали текст-заглушку отсюда -->
           <p id="status-message"></p>
         </div>
         <button id="statsButton" class="icon-btn hidden">
           <svg
-            xmlns="http://www.w.org/2000/svg"
+            xmlns="http://www.w3.org/2000/svg"
             width="24"
             height="24"
             viewBox="0 0 24 24"
@@ -134,7 +134,21 @@
       </div>
     </div>
 
-    <script src="tuner.js?v=9" defer></script>
-    <!-- Изменил версию скрипта, чтобы избежать кэширования -->
+    <script src="js/utils.js"></script>
+    <script src="js/data_service.js"></script>
+    <script src="js/achievements_engine.js"></script>
+    <script src="js/tuner.js?v=10" defer></script>
+    <!-- --- HTML-КОД ДЛЯ УВЕДОМЛЕНИЯ ОБ АЧИВКЕ --- -->
+    <div id="achievement-toast">
+      <div class="toast-icon">🏆</div>
+      <div class="toast-text-content">
+        <p class="toast-main-title">Достижение получено!</p>
+        <p id="toast-achievement-title">Название достижения</p>
+      </div>
+    </div>
+    <!-- --- КОНЕЦ БЛОКА УВЕДОМЛЕНИЯ --- -->
+    <script>
+      window.TimeTracker.init();
+    </script>
   </body>
 </html>

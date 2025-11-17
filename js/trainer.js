@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // --- DOM-элементы (без изменений) ---
+  // --- DOM-элементы ---
   const startButton = document.getElementById("trainerStartButton"),
     stopButton = document.getElementById("trainerStopButton"),
     noteElement = document.getElementById("note"),
@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     restartButton = document.getElementById("restart-button"),
     backToMenuButton = document.getElementById("back-to-menu-button");
 
-  // --- Константы (без изменений) ---
+  // --- Константы ---
   const noteStrings = [
       "C",
       "C#",
@@ -42,12 +42,12 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     A4 = 440,
     C0 = A4 * Math.pow(2, -4.75),
-    MIN_NOTE_NUM = 24, // C2
-    MAX_NOTE_NUM = 84, // C7
+    MIN_NOTE_NUM = 24,
+    MAX_NOTE_NUM = 84,
     WHITE_KEY_PIXELS = 50,
     PITCH_HISTORY_SIZE = 400;
 
-  // --- Переменные состояния приложения (без изменений) ---
+  // --- Переменные состояния приложения ---
   let audioContext,
     analyser,
     sourceNode,
@@ -65,24 +65,22 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- Переменные движка тренажера ---
   let exerciseId = null,
     octaveShift = 0,
-    holdDuration = 1.0;
+    holdDuration = 1.0,
+    difficulty = "normal";
   let centTolerance = 35;
   let currentExercise = null,
     currentNoteIndex = -1,
-    state = "IDLE", // IDLE, LISTENING, FEEDBACK, FINISHED
+    state = "IDLE",
     noteStartTime = 0,
     allNoteScores = [];
-
-  // --- ИЗМЕНЕНИЕ 1: Новая переменная для "периода прощения" ---
   let noteResetTimeout = null;
 
-  // --- ОСНОВНАЯ ЛОГИКА (init без изменений) ---
   async function init() {
     const urlParams = new URLSearchParams(window.location.search);
     exerciseId = urlParams.get("exercise");
     octaveShift = parseInt(urlParams.get("shift") || "0");
     holdDuration = parseFloat(urlParams.get("hold") || "1.0");
-    const difficulty = urlParams.get("difficulty") || "normal";
+    difficulty = urlParams.get("difficulty") || "normal";
 
     if (!exerciseId) {
       startButton.disabled = true;
@@ -130,7 +128,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function mainLoop() {
-    // Скролл (без изменений)
     let distance = targetScrollOffset - scrollOffsetPixels;
     if (Math.abs(distance) > 0.01) {
       scrollOffsetPixels += distance * 0.1;
@@ -143,7 +140,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (isListening) {
-      // Получение данных с микрофона (без изменений)
       analyser.getFloatTimeDomainData(dataArray);
       let rms = 0;
       for (let i = 0; i < dataArray.length; i++)
@@ -159,7 +155,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // Сглаживание (без изменений)
       if (lastFramePitch === null && currentPitch !== null) {
         ignoreFramesCounter = 10;
       }
@@ -172,7 +167,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       updatePitchDisplay(pitchInfo);
 
-      // --- ИЗМЕНЕНИЕ 2: Обновленная логика таймера ---
       const isNoteCorrect =
         pitchInfo &&
         pitchInfo.noteNum ===
@@ -181,16 +175,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (state === "LISTENING") {
         if (isNoteCorrect) {
-          // Если мы в допуске, отменяем любой запланированный сброс таймера
           if (noteResetTimeout) {
             clearTimeout(noteResetTimeout);
             noteResetTimeout = null;
           }
-          // И запускаем таймер, если он еще не запущен
           if (noteStartTime === 0) {
             noteStartTime = Date.now();
           }
-          // Проверяем, достигнута ли нужная длительность
           if ((Date.now() - noteStartTime) / 1000 >= holdDuration) {
             allNoteScores.push({
               note: currentExercise.notes[currentNoteIndex].noteName,
@@ -199,13 +190,11 @@ document.addEventListener("DOMContentLoaded", () => {
             goToNextNote();
           }
         } else {
-          // Если мы ВЫШЛИ из допуска, но таймер был запущен...
           if (noteStartTime !== 0 && !noteResetTimeout) {
-            // ...запускаем отложенный сброс таймера.
             noteResetTimeout = setTimeout(() => {
               noteStartTime = 0;
               noteResetTimeout = null;
-            }, 200); // <-- Наш "период прощения" в 200мс
+            }, 200);
           }
         }
       }
@@ -219,13 +208,10 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(mainLoop);
   }
 
-  // --- Остальной код без изменений ---
-
   function resetExercise() {
     state = "IDLE";
     currentNoteIndex = -1;
     allNoteScores = [];
-    // --- ИЗМЕНЕНИЕ 3: Сбрасываем таймаут при рестарте упражнения ---
     if (noteResetTimeout) clearTimeout(noteResetTimeout);
     noteResetTimeout = null;
     noteStartTime = 0;
@@ -275,13 +261,63 @@ document.addEventListener("DOMContentLoaded", () => {
     state = "FINISHED";
     stopListening();
     updateUI();
-    showResults();
+
+    const results = calculateResults();
+
+    // 1. Первое использование
+    localStorage.setItem("trainer_first_use", new Date().toISOString());
+
+    // 2. Точность (используем новую, правильную точность)
+    if (results.accuracy >= 80) {
+      localStorage.setItem("trainer_accuracy_80", new Date().toISOString());
+    }
+    if (results.accuracy >= 95) {
+      localStorage.setItem("trainer_accuracy_95", new Date().toISOString());
+    }
+    if (results.accuracy >= 100) {
+      localStorage.setItem("trainer_accuracy_100", new Date().toISOString());
+    }
+
+    // 3. Сложность
+    if (difficulty === "hard") {
+      localStorage.setItem(
+        "trainer_hard_mode_completed",
+        new Date().toISOString()
+      );
+    }
+
+    // 4. Все упражнения
+    try {
+      let completedSet = new Set(
+        JSON.parse(localStorage.getItem("trainerCompletedExercises")) || []
+      );
+      completedSet.add(exerciseId);
+      localStorage.setItem(
+        "trainerCompletedExercises",
+        JSON.stringify(Array.from(completedSet))
+      );
+    } catch (e) {
+      console.error("Ошибка сохранения прогресса тренажера:", e);
+    }
+
+    AchievementsEngine.checkAndUnlock();
+
+    showResults(results);
     startButton.textContent = "Начать заново";
     startButton.disabled = false;
     stopButton.classList.add("hidden");
   }
 
-  function showResults() {
+  function calculateResults() {
+    if (allNoteScores.length === 0) {
+      return {
+        completion: 0,
+        avgCents: 0,
+        accuracy: 0,
+        worstNote: { note: "--", deviation: 0 },
+      };
+    }
+
     let totalCents = 0;
     let worstNote = { note: "--", deviation: -1 };
 
@@ -293,18 +329,35 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    const avgCents =
-      allNoteScores.length > 0 ? totalCents / allNoteScores.length : 0;
+    const avgCents = totalCents / allNoteScores.length;
+    const completion =
+      (allNoteScores.length / currentExercise.notes.length) * 100;
 
-    resultsContent.innerHTML = `<div class="stat-item">
-        <span class="stat-label">Средняя точность</span>
-        <span class="stat-value">±${avgCents.toFixed(1)} cents</span>
+    // Новая формула точности
+    const accuracy = Math.max(0, (1 - avgCents / centTolerance) * 100);
+
+    return { completion, avgCents, accuracy, worstNote };
+  }
+
+  function showResults(results) {
+    resultsContent.innerHTML = `
+      <div class="stat-item">
+        <span class="stat-label">Точность интонирования</span>
+        <span class="stat-value">${results.accuracy.toFixed(0)}%</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Среднее отклонение</span>
+        <span class="stat-value">±${results.avgCents.toFixed(1)} cents</span>
+      </div>
+       <div class="stat-item">
+        <span class="stat-label">Завершено нот</span>
+        <span class="stat-value">${results.completion.toFixed(0)}%</span>
       </div>
       <div class="stat-item">
         <span class="stat-label">Самая сложная нота</span>
         <span class="stat-value">${
-          worstNote.note
-        } (±${worstNote.deviation.toFixed(0)} cents)</span>
+          results.worstNote.note
+        } (±${results.worstNote.deviation.toFixed(0)} cents)</span>
       </div>`;
 
     resultsModal.classList.remove("hidden");
@@ -325,7 +378,7 @@ document.addEventListener("DOMContentLoaded", () => {
       scrollToNote(noteToNoteNum(targetNote.noteName), false);
     } else if (state === "FINISHED") {
       instructionsElement.textContent = "Результаты";
-      progressElement.textContent = `Точность: ${allNoteScores.length} / ${currentExercise.notes.length}`;
+      progressElement.textContent = `Упражнение завершено`;
     }
   }
 

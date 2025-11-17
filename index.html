@@ -8,7 +8,8 @@
       content="width=device-width, initial-scale=1.0, user-scalable=no"
     />
     <title>Vocal Coach</title>
-    <link rel="stylesheet" href="style.css?v=15" />
+    <link rel="stylesheet" href="style.css?v=19" />
+    <!-- Обновил версию стиля -->
   </head>
   <body>
     <div class="app-container">
@@ -20,17 +21,64 @@
         <a href="tracks.html" class="menu-button">
           <span class="button-icon">🤸</span>
           <span class="button-text">Упражнения</span>
+          <!-- ИЗМЕНЕНО: data-info -> data-info-id -->
+          <span class="info-icon" data-info-id="main-menu-exercises">i</span>
+        </a>
+        <a href="achievements.html" class="menu-button">
+          <span class="button-icon">🏅</span>
+          <span class="button-text">Мои достижения</span>
+          <!-- ИЗМЕНЕНО: data-info -> data-info-id -->
+          <span class="info-icon" data-info-id="main-menu-achievements">i</span>
         </a>
         <a href="tuner.html" class="menu-button">
           <span class="button-icon">🎤</span>
           <span class="button-text">Проверка на попадание в ноты</span>
+          <!-- ИЗМЕНЕНО: data-info -> data-info-id -->
+          <span class="info-icon" data-info-id="main-menu-tuner">i</span>
         </a>
-        <!-- НОВАЯ КНОПКА -->
         <a href="trainer_menu.html" class="menu-button">
           <span class="button-icon">🎯</span>
           <span class="button-text">Вокальный тренажер</span>
+          <!-- ИЗМЕНЕНО: data-info -> data-info-id -->
+          <span class="info-icon" data-info-id="main-menu-trainer">i</span>
+        </a>
+        <a href="breathing_trainer.html" class="menu-button">
+          <span class="button-icon">🌬️</span>
+          <span class="button-text">Тренажер на дыхание</span>
+          <!-- ИЗМЕНЕНО: data-info -> data-info-id -->
+          <span class="info-icon" data-info-id="main-menu-breathing">i</span>
         </a>
       </div>
     </div>
+
+    <div id="info-modal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modal-title">Заголовок</h2>
+          <button id="modal-close-button" class="modal-close-button">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <p id="modal-text">Текст описания...</p>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/data_service.js"></script>
+    <script src="js/achievements_engine.js"></script>
+    <script src="js/index.js"></script>
+
+    <div id="achievement-toast">
+      <div class="toast-icon">🏆</div>
+      <div class="toast-text-content">
+        <p class="toast-main-title">Достижение получено!</p>
+        <p id="toast-achievement-title">Название достижения</p>
+      </div>
+    </div>
+    <script>
+      window.TimeTracker.init();
+    </script>
   </body>
 </html>
