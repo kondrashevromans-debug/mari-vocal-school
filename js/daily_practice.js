@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayDate = Utils.formatDate(yesterday);
 
-  const lastCompletedDate = localStorage.getItem(storageKey);
+  const lastCompletedDate = StorageService.get(storageKey);
   let allCheckboxes = [];
 
   function checkAllCheckboxes() {
@@ -45,10 +45,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   completeButton.addEventListener("click", () => {
     // --- ОБНОВЛЕННЫЙ БЛОК: Логика стриков и идеальной недели ---
-    const lastCompleted = localStorage.getItem(storageKey);
-    let currentStreak = parseInt(localStorage.getItem(streakKey)) || 0;
-    let perfectWeekCounter =
-      parseInt(localStorage.getItem(perfectWeekKey)) || 0;
+    const lastCompleted = StorageService.get(storageKey);
+    let currentStreak = parseInt(StorageService.get(streakKey)) || 0;
+    let perfectWeekCounter = parseInt(StorageService.get(perfectWeekKey)) || 0;
 
     if (lastCompleted !== todayDate) {
       // Убедимся, что не нажимаем кнопку второй раз за день
@@ -67,9 +66,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         perfectWeekCounter = 0; // Сбрасываем в конце недели
       }
 
-      localStorage.setItem(streakKey, currentStreak);
-      localStorage.setItem(perfectWeekKey, perfectWeekCounter);
-      localStorage.setItem(storageKey, todayDate);
+      StorageService.set(streakKey, currentStreak);
+      StorageService.set(perfectWeekKey, perfectWeekCounter);
+      StorageService.set(storageKey, todayDate);
 
       // Проверка ачивки "Идеальная неделя"
       if (perfectWeekCounter >= 7) {

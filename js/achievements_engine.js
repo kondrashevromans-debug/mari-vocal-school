@@ -4,7 +4,7 @@ window.AchievementsEngine = (() => {
 
   const getStorageItem = (key, defaultValue) => {
     try {
-      return JSON.parse(localStorage.getItem(key)) || defaultValue;
+      return StorageService.get(key, defaultValue);
     } catch {
       return defaultValue;
     }
@@ -38,10 +38,7 @@ window.AchievementsEngine = (() => {
 
     console.log(`ACHIEVEMENT UNLOCKED: ${achievement.title}`);
     unlockedAchievements[achievement.id] = new Date().toISOString();
-    localStorage.setItem(
-      "unlockedAchievements",
-      JSON.stringify(unlockedAchievements)
-    );
+    StorageService.set("unlockedAchievements", unlockedAchievements);
     showToast(achievement.title);
   };
 
@@ -70,7 +67,7 @@ window.AchievementsEngine = (() => {
   const checkers = {
     // === ONBOARDING ===
     first_exercise: () => getTotalCompletedExercises() > 0,
-    first_daily_practice: () => !!localStorage.getItem("lastCompletedDaily"),
+    first_daily_practice: () => !!StorageService.get("lastCompletedDaily"),
     first_foundation_module: (data) => {
       const foundationTrack = window.DataService.getTrackById(
         data,
@@ -120,29 +117,27 @@ window.AchievementsEngine = (() => {
       return completedRequiredModules >= 3;
     },
     breathing_trainer_first_use: () =>
-      !!localStorage.getItem("breathing_trainer_first_use"),
-    tuner_first_use: () => !!localStorage.getItem("tuner_first_use"),
+      !!StorageService.get("breathing_trainer_first_use"),
+    tuner_first_use: () => !!StorageService.get("tuner_first_use"),
 
     // === HABIT BUILDING ===
     daily_streak_3: () =>
-      (parseInt(localStorage.getItem("dailyStreak")) || 0) >= 3,
+      (parseInt(StorageService.get("dailyStreak")) || 0) >= 3,
     daily_streak_7: () =>
-      (parseInt(localStorage.getItem("dailyStreak")) || 0) >= 7,
+      (parseInt(StorageService.get("dailyStreak")) || 0) >= 7,
     daily_streak_14: () =>
-      (parseInt(localStorage.getItem("dailyStreak")) || 0) >= 14,
+      (parseInt(StorageService.get("dailyStreak")) || 0) >= 14,
     daily_streak_30: () =>
-      (parseInt(localStorage.getItem("dailyStreak")) || 0) >= 30,
-    perfect_week_daily: () => !!localStorage.getItem("perfect_week_daily"),
+      (parseInt(StorageService.get("dailyStreak")) || 0) >= 30,
+    perfect_week_daily: () => !!StorageService.get("perfect_week_daily"),
     total_sessions_50: () =>
-      (parseInt(localStorage.getItem("totalSessions")) || 0) >= 50,
+      (parseInt(StorageService.get("totalSessions")) || 0) >= 50,
     total_sessions_100: () =>
-      (parseInt(localStorage.getItem("totalSessions")) || 0) >= 100,
+      (parseInt(StorageService.get("totalSessions")) || 0) >= 100,
     time_spent_10h: () => {
-      const ms = parseInt(localStorage.getItem("totalTimeSpent")) || 0;
+      const ms = parseInt(StorageService.get("totalTimeSpent")) || 0;
       return ms >= 10 * 60 * 60 * 1000;
     },
-
-    // === FOUNDATION MASTERY ===
     foundation_relax_completed: (data) => {
       const foundationTrack = window.DataService.getTrackById(
         data,
