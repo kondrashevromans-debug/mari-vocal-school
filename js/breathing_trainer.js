@@ -71,8 +71,8 @@ document.addEventListener("DOMContentLoaded", () => {
     isAnimating = true;
     sessionStartTime = Date.now();
 
-    if (!StorageService.get("breathing_trainer_first_use")) {
-      StorageService.set(
+    if (!localStorage.getItem("breathing_trainer_first_use")) {
+      localStorage.setItem(
         "breathing_trainer_first_use",
         new Date().toISOString()
       );
@@ -104,10 +104,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Проверяем ачивки (5 минут = 300 секунд, 10 минут = 600 секунд)
       if (sessionDurationSeconds >= 300) {
-        StorageService.set("breathing_trainer_5min", new Date().toISOString());
+        localStorage.setItem(
+          "breathing_trainer_5min",
+          new Date().toISOString()
+        );
       }
       if (sessionDurationSeconds >= 600) {
-        StorageService.set("breathing_trainer_10min", new Date().toISOString());
+        localStorage.setItem(
+          "breathing_trainer_10min",
+          new Date().toISOString()
+        );
       }
 
       // Вызываем движок в любом случае, чтобы он проверил установленные флаги

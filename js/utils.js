@@ -48,8 +48,8 @@ window.TimeTracker = (() => {
   const INTERVAL_MS = 5000; // Обновляем каждые 5 секунд
 
   const updateTime = () => {
-    const currentMs = parseInt(StorageService.get("totalTimeSpent")) || 0;
-    StorageService.set("totalTimeSpent", currentMs + INTERVAL_MS);
+    const currentMs = parseInt(localStorage.getItem("totalTimeSpent")) || 0;
+    localStorage.setItem("totalTimeSpent", currentMs + INTERVAL_MS);
     // console.log(`Time tracked. Total: ${currentMs + INTERVAL_MS} ms`); // Раскомментируй для отладки
   };
 

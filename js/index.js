@@ -1,10 +1,10 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const welcomeGuideShown = StorageService.get("welcomeGuideShown");
+  const welcomeGuideShown = localStorage.getItem("welcomeGuideShown");
 
   if (!welcomeGuideShown) {
     if (window.openInfoModal) {
       window.openInfoModal("welcome");
     }
-    StorageService.set("welcomeGuideShown", "true");
+    localStorage.setItem("welcomeGuideShown", "true");
   }
 });

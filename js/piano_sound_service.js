@@ -32,64 +32,15 @@ const pianoSoundService = (() => {
       const noteFileName = note.replace("#", "s");
       const path = `${BASE_PATH}${octave}/${noteFileName}.mp3`;
 
-      // Сначала пробуем получить из кэша Service Worker
-      if (window.caches) {
-        caches
-          .match(path)
-          .then(function (response) {
-            if (response) {
-              response.blob().then(function (blob) {
-                const audioUrl = URL.createObjectURL(blob);
-                const audio = new Audio(audioUrl);
-                audio.addEventListener("canplaythrough", () => {
-                  sounds[note] = audio;
-                  resolve();
-                });
-                audio.addEventListener("error", (e) => {
-                  console.error(
-                    `Не удалось загрузить семпл из кэша: ${path}`,
-                    e
-                  );
-                  reject(`Error loading from cache ${path}`);
-                });
-              });
-            } else {
-              // Fallback: обычная загрузка
-              const audio = new Audio(path);
-              audio.addEventListener("canplaythrough", () => {
-                sounds[note] = audio;
-                resolve();
-              });
-              audio.addEventListener("error", (e) => {
-                console.error(`Не удалось загрузить семпл: ${path}`, e);
-                reject(`Error loading ${path}`);
-              });
-            }
-          })
-          .catch(() => {
-            // Fallback: обычная загрузка
-            const audio = new Audio(path);
-            audio.addEventListener("canplaythrough", () => {
-              sounds[note] = audio;
-              resolve();
-            });
-            audio.addEventListener("error", (e) => {
-              console.error(`Не удалось загрузить семпл: ${path}`, e);
-              reject(`Error loading ${path}`);
-            });
-          });
-      } else {
-        // Fallback: обычная загрузка
-        const audio = new Audio(path);
-        audio.addEventListener("canplaythrough", () => {
-          sounds[note] = audio;
-          resolve();
-        });
-        audio.addEventListener("error", (e) => {
-          console.error(`Не удалось загрузить семпл: ${path}`, e);
-          reject(`Error loading ${path}`);
-        });
-      }
+      const audio = new Audio(path);
+      audio.addEventListener("canplaythrough", () => {
+        sounds[note] = audio;
+        resolve();
+      });
+      audio.addEventListener("error", (e) => {
+        console.error(`Не удалось загрузить семпл: ${path}`, e);
+        reject(`Error loading ${path}`);
+      });
     });
   };
 

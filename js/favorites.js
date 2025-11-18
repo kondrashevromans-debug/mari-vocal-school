@@ -1,8 +1,8 @@
 document.addEventListener("DOMContentLoaded", async () => {
   const container = document.getElementById("favorites-container");
-  const userAccessLevel = StorageService.get("userAccessLevel", "basic");
+  const userAccessLevel = localStorage.getItem("userAccessLevel") || "basic";
   const favoriteExercises = new Set(
-    StorageService.get("favoriteExercises", [])
+    JSON.parse(localStorage.getItem("favoriteExercises")) || []
   );
 
   if (favoriteExercises.size === 0) {
