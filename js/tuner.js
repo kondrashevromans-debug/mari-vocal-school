@@ -1,4 +1,4 @@
-// --- START OF FILE js/tuner.js ---
+// --- НАЧАЛО КОДА ДЛЯ js/tuner.js ---
 
 document.addEventListener("DOMContentLoaded", () => {
   let userId = null;
@@ -55,7 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const allTimeBestIntonationStat = document.getElementById(
     "all-time-best-intonation-stat"
   );
-  const loadingIndicator = document.getElementById("loading-indicator"); // Новый элемент
+  const loadingIndicator = document.getElementById("loading-indicator");
 
   let audioContext;
   let analyser;
@@ -66,10 +66,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const PITCH_HISTORY_SIZE = 400;
   const SMOOTHING_WINDOW_SIZE = 5;
   let pitchHistory = [];
-  // Диапазон: с 1-й октавы по C7 (в папке есть только C7 из 7-й октавы)
-  // octave 1 -> notes 12..23, C7 -> note 84
   const MIN_NOTE_NUM = 12; // C1
-  const MAX_NOTE_NUM = 84; // C7 (включительно)
+  const MAX_NOTE_NUM = 84; // C7
   const NUM_NOTES_DISPLAYED = MAX_NOTE_NUM - MIN_NOTE_NUM + 1;
   const WHITE_KEY_PIXELS = 50;
   let scrollOffsetPixels = 0;
@@ -106,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastFramePitch = null;
   let isFrozen = false;
   let referenceOscillator = null;
-  let dummyGainNode; // Остается для глушения микрофона
+  let dummyGainNode;
   let successfulSingTimeStart = 0;
   let currentStreak = 0;
   let lastSaveTime = 0;
@@ -141,7 +139,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const allData =
         JSON.parse(localStorage.getItem("vocal_progress_data")) || {};
       userProgress = allData[userId] || getDefaultProgress();
-
       if (
         !userProgress.longestHold ||
         typeof userProgress.longestHold !== "object"
@@ -158,7 +155,6 @@ document.addEventListener("DOMContentLoaded", () => {
           cents: userProgress.bestIntonation || 999,
           note: null,
         };
-
       userProgress.chromaticNotes = new Set(userProgress.chromaticNotes || []);
     } catch (e) {
       userProgress = getDefaultProgress();
@@ -171,14 +167,12 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const allData =
         JSON.parse(localStorage.getItem("vocal_progress_data")) || {};
-
       const progressToSave = { ...userProgress };
       if (progressToSave.chromaticNotes instanceof Set) {
         progressToSave.chromaticNotes = Array.from(
           progressToSave.chromaticNotes
         );
       }
-
       allData[userId] = progressToSave;
       localStorage.setItem("vocal_progress_data", JSON.stringify(allData));
     } catch (e) {
@@ -187,16 +181,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function checkTunerAchievements() {
-    if (userProgress.longestHold.time >= 5) {
+    if (userProgress.longestHold.time >= 5)
       localStorage.setItem("tuner_hold_5s", new Date().toISOString());
-    }
-    if (userProgress.longestHold.time >= 10) {
+    if (userProgress.longestHold.time >= 10)
       localStorage.setItem("tuner_hold_10s", new Date().toISOString());
-    }
-    if (userProgress.chromaticNotes.size >= 12) {
+    if (userProgress.chromaticNotes.size >= 12)
       localStorage.setItem("tuner_chromatic_12", new Date().toISOString());
-    }
-
     AchievementsEngine.checkAndUnlock();
   }
 
@@ -246,37 +236,29 @@ document.addEventListener("DOMContentLoaded", () => {
       longestHoldEl,
       bestIntonationEl
     ) => {
-      let bestNote = null;
-      let maxTime = 0;
+      let bestNote = null,
+        maxTime = 0;
       for (const note in stats.noteStats) {
         if (stats.noteStats[note] > maxTime) {
           maxTime = stats.noteStats[note];
           bestNote = note;
         }
       }
-      if (bestNote) {
-        bestNoteEl.textContent = `${bestNote} (${formatTime(maxTime)})`;
-      } else {
-        bestNoteEl.textContent = "--";
-      }
-
-      if (stats.longestHold && stats.longestHold.note) {
-        longestHoldEl.textContent = `${formatTime(
-          stats.longestHold.time
-        )} (на ${stats.longestHold.note})`;
-      } else {
-        longestHoldEl.textContent = `${formatTime(
-          stats.longestHold.time || 0
-        )}`;
-      }
-
-      if (stats.bestIntonation && stats.bestIntonation.cents < 999) {
-        bestIntonationEl.textContent = `±${stats.bestIntonation.cents.toFixed(
-          1
-        )} cents (на ${stats.bestIntonation.note})`;
-      } else {
-        bestIntonationEl.textContent = "--";
-      }
+      bestNoteEl.textContent = bestNote
+        ? `${bestNote} (${formatTime(maxTime)})`
+        : "--";
+      longestHoldEl.textContent =
+        stats.longestHold && stats.longestHold.note
+          ? `${formatTime(stats.longestHold.time)} (на ${
+              stats.longestHold.note
+            })`
+          : `${formatTime(stats.longestHold.time || 0)}`;
+      bestIntonationEl.textContent =
+        stats.bestIntonation && stats.bestIntonation.cents < 999
+          ? `±${stats.bestIntonation.cents.toFixed(1)} cents (на ${
+              stats.bestIntonation.note
+            })`
+          : "--";
     };
     populateStatsBlock(
       sessionStats,
@@ -407,8 +389,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   function drawPitchGraph() {
-    const width = canvas.width;
-    const height = canvas.height;
+    const width = canvas.width,
+      height = canvas.height;
     canvasCtx.fillStyle = "#000";
     canvasCtx.fillRect(0, 0, width, height);
     if (targetNote) {
@@ -416,8 +398,8 @@ document.addEventListener("DOMContentLoaded", () => {
         "key-" + targetNote.replace("#", "s")
       );
       if (targetKeyElement) {
-        const keyTop = targetKeyElement.offsetTop;
-        const keyHeight = targetKeyElement.offsetHeight;
+        const keyTop = targetKeyElement.offsetTop,
+          keyHeight = targetKeyElement.offsetHeight;
         canvasCtx.fillStyle = "rgba(0, 123, 255, 0.3)";
         canvasCtx.fillRect(0, keyTop, width, keyHeight);
       }
@@ -446,8 +428,7 @@ document.addEventListener("DOMContentLoaded", () => {
       let medianPitch = null;
       if (validPitchesInWindow.length > 0) {
         const sortedWindow = validPitchesInWindow.sort((a, b) => a - b);
-        const midIndex = Math.floor(sortedWindow.length / 2);
-        medianPitch = sortedWindow[midIndex];
+        medianPitch = sortedWindow[Math.floor(sortedWindow.length / 2)];
       }
       const x = (i / PITCH_HISTORY_SIZE) * width;
       if (medianPitch !== null) {
@@ -477,16 +458,14 @@ document.addEventListener("DOMContentLoaded", () => {
       pianoContainer.style.transform = `translateY(-${scrollOffsetPixels}px)`;
       canvas.style.transform = `translateY(-${scrollOffsetPixels}px)`;
     }
-
     if (isListening && !isFrozen) {
       analyser.getFloatTimeDomainData(dataArray);
       let rms = 0;
       for (let i = 0; i < dataArray.length; i++)
         rms += dataArray[i] * dataArray[i];
       rms = Math.sqrt(rms / dataArray.length);
-
-      let currentPitch = null;
-      let pitchInfo = null;
+      let currentPitch = null,
+        pitchInfo = null;
       if (rms > 0.025) {
         const pitch = yin(dataArray, audioContext.sampleRate);
         if (pitch !== -1) {
@@ -494,7 +473,6 @@ document.addEventListener("DOMContentLoaded", () => {
           pitchInfo = frequencyToNoteDetails(currentPitch);
         }
       }
-
       if (pitchInfo) {
         noteElement.textContent = pitchInfo.note;
         octaveElement.textContent = pitchInfo.octave;
@@ -502,19 +480,15 @@ document.addEventListener("DOMContentLoaded", () => {
           0
         )} cents`;
         updateTuner(pitchInfo.cents);
-        if (!isManuallyScrolling) {
-          scrollToNote(pitchInfo.noteNum);
-        }
+        if (!isManuallyScrolling) scrollToNote(pitchInfo.noteNum);
         if (targetNote) {
           const sungNoteWithOctave = pitchInfo.note + pitchInfo.octave;
           display.classList.remove("correct", "octave-miss", "wrong");
-          if (sungNoteWithOctave === targetNote) {
+          if (sungNoteWithOctave === targetNote)
             display.classList.add("correct");
-          } else if (pitchInfo.note === targetNote.replace(/[0-9]/g, "")) {
+          else if (pitchInfo.note === targetNote.replace(/[0-9]/g, ""))
             display.classList.add("octave-miss");
-          } else {
-            display.classList.add("wrong");
-          }
+          else display.classList.add("wrong");
         }
       } else {
         noteElement.textContent = "--";
@@ -523,30 +497,23 @@ document.addEventListener("DOMContentLoaded", () => {
         updateTuner(null);
         display.classList.remove("correct", "octave-miss", "wrong");
       }
-
       let isCorrectNote = false;
       if (pitchInfo && targetNote) {
-        if (pitchInfo.note + pitchInfo.octave === targetNote) {
+        if (pitchInfo.note + pitchInfo.octave === targetNote)
           isCorrectNote = true;
-        }
       }
-
       if (isCorrectNote) {
         if (successfulSingTimeStart === 0) successfulSingTimeStart = Date.now();
         currentStreak = (Date.now() - successfulSingTimeStart) / 1000;
-
         recentCents.push(Math.abs(pitchInfo.cents));
         if (recentCents.length > 60) recentCents.shift();
-
         if (recentCents.length === 60) {
           const avgCents =
             recentCents.reduce((a, b) => a + b, 0) / recentCents.length;
-          if (avgCents < sessionStats.bestIntonation.cents) {
+          if (avgCents < sessionStats.bestIntonation.cents)
             sessionStats.bestIntonation = { cents: avgCents, note: targetNote };
-          }
-          if (avgCents < userProgress.bestIntonation.cents) {
+          if (avgCents < userProgress.bestIntonation.cents)
             userProgress.bestIntonation = { cents: avgCents, note: targetNote };
-          }
           userProgress.chromaticNotes.add(pitchInfo.note);
         }
       } else {
@@ -556,21 +523,19 @@ document.addEventListener("DOMContentLoaded", () => {
           if (!sessionStats.noteStats[targetNote])
             sessionStats.noteStats[targetNote] = 0;
           sessionStats.noteStats[targetNote] += elapsedSeconds;
-          if (currentStreak > sessionStats.longestHold.time) {
+          if (currentStreak > sessionStats.longestHold.time)
             sessionStats.longestHold = {
               time: currentStreak,
               note: targetNote,
             };
-          }
           if (!userProgress.noteStats[targetNote])
             userProgress.noteStats[targetNote] = 0;
           userProgress.noteStats[targetNote] += elapsedSeconds;
-          if (currentStreak > userProgress.longestHold.time) {
+          if (currentStreak > userProgress.longestHold.time)
             userProgress.longestHold = {
               time: currentStreak,
               note: targetNote,
             };
-          }
           updateLastPracticeDate();
           updateProgressUI();
           checkTunerAchievements();
@@ -579,21 +544,17 @@ document.addEventListener("DOMContentLoaded", () => {
         currentStreak = 0;
         recentCents = [];
       }
-
       if (Date.now() - lastSaveTime > 5000) {
         saveProgress();
         lastSaveTime = Date.now();
       }
-
-      if (lastFramePitch === null && currentPitch !== null) {
+      if (lastFramePitch === null && currentPitch !== null)
         ignoreFramesCounter = 10;
-      }
       let pitchToGraph = currentPitch;
       if (ignoreFramesCounter > 0) {
         pitchToGraph = null;
         ignoreFramesCounter--;
       }
-
       pitchHistory.push(pitchToGraph);
       if (pitchHistory.length > PITCH_HISTORY_SIZE) pitchHistory.shift();
       lastFramePitch = currentPitch;
@@ -611,19 +572,13 @@ document.addEventListener("DOMContentLoaded", () => {
       .querySelectorAll(".key.target")
       .forEach((k) => k.classList.remove("target"));
     key.classList.add("target");
-    if (targetNote !== newTargetNote && referenceOscillator) {
+    if (targetNote !== newTargetNote && referenceOscillator)
       toggleReferenceTone();
-    }
     targetNote = newTargetNote;
     targetNoteDisplay.textContent = `Цель: ${targetNote}`;
     referenceToneButton.classList.remove("hidden");
     isManuallyScrolling = false;
-
-    // --- ИЗМЕНЕНИЕ ---
-    // Старый код синтезатора удален. Вызываем новый сервис.
     pianoSoundService.playSound(newTargetNote);
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
     const noteNum = noteToNoteNum(targetNote);
     if (noteNum) scrollToNote(noteNum, true);
     if (!isListening) startListening();
@@ -642,7 +597,6 @@ document.addEventListener("DOMContentLoaded", () => {
       targetNoteDisplay.textContent = "";
       isManuallyScrolling = false;
       startListening();
-
       if (!localStorage.getItem("tuner_first_use")) {
         localStorage.setItem("tuner_first_use", new Date().toISOString());
         AchievementsEngine.checkAndUnlock();
@@ -717,9 +671,7 @@ document.addEventListener("DOMContentLoaded", () => {
     octaveElement.textContent = "";
     centsElement.textContent = "Нажмите 'Начать' или сыграйте ноту";
     statusMessage.textContent = "";
-    if (!targetNote) {
-      targetNoteDisplay.textContent = "";
-    }
+    if (!targetNote) targetNoteDisplay.textContent = "";
     pitchHistory = [];
     updateTuner(null);
     tunerContainer.style.visibility = "hidden";
@@ -734,9 +686,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const noteYPosition =
       whiteKeysAbove * WHITE_KEY_PIXELS + WHITE_KEY_PIXELS / 2;
     targetScrollOffset = noteYPosition - mainContent.clientHeight / 2;
-    if (immediate) {
-      scrollOffsetPixels = targetScrollOffset;
-    }
+    if (immediate) scrollOffsetPixels = targetScrollOffset;
   }
 
   function startManualScroll() {
@@ -777,13 +727,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   function yin(buffer, sampleRate) {
-    const threshold = 0.12;
-    const bufferSize = buffer.length;
-    const yinBufferSize = bufferSize / 2;
+    const threshold = 0.12,
+      bufferSize = buffer.length,
+      yinBufferSize = bufferSize / 2;
     const yinBuffer = new Float32Array(yinBufferSize);
-    let tauEstimate = -1;
-    let pitchInHz = -1;
-    let runningSum = 0;
+    let tauEstimate = -1,
+      pitchInHz = -1,
+      runningSum = 0;
     yinBuffer[0] = 1;
     for (let tau = 1; tau < yinBufferSize; tau++) {
       let differenceSum = 0;
@@ -815,24 +765,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     if (tauEstimate > 0 && tauEstimate < yinBufferSize - 1) {
-      const y1 = yinBuffer[tauEstimate - 1];
-      const y2 = yinBuffer[tauEstimate];
-      const y3 = yinBuffer[tauEstimate + 1];
+      const y1 = yinBuffer[tauEstimate - 1],
+        y2 = yinBuffer[tauEstimate],
+        y3 = yinBuffer[tauEstimate + 1];
       const denominator = 2 * (2 * y2 - y3 - y1);
       if (denominator !== 0) {
-        const betterTau = tauEstimate + (y3 - y1) / denominator;
-        pitchInHz = sampleRate / betterTau;
+        pitchInHz = sampleRate / (tauEstimate + (y3 - y1) / denominator);
       } else {
         pitchInHz = sampleRate / tauEstimate;
       }
     }
     return pitchInHz > 50 && pitchInHz < 3000 ? pitchInHz : -1;
   }
-
-  // --- УДАЛЕНИЕ ---
-  // Функция playNote полностью удалена, так как ее функционал
-  // теперь находится в pianoSoundService.
-  // --- КОНЕЦ УДАЛЕНИЯ ---
 
   function noteToFrequency(note) {
     const noteNum = noteToNoteNum(note);
@@ -872,7 +816,38 @@ document.addEventListener("DOMContentLoaded", () => {
   octaveUpBtn.addEventListener("click", () => jumpOctave(-1));
   octaveDownBtn.addEventListener("click", () => jumpOctave(1));
 
-  // --- ИНИЦИАЛИЗАЦИЯ СЕРВИСА ---
+  // --- НОВАЯ УНИВЕРСАЛЬНАЯ ЛОГИКА ИНИЦИАЛИЗАЦИИ ---
+
+  // Эта функция содержит логику ЗАПУСКА загрузки аудио
+  function startAudioLoadingProcess() {
+    // 1. Инициализируем аудиоконтекст (это тоже требует действия пользователя на iOS)
+    initAudioContext();
+    if (!audioContext) {
+      alert("Не удалось запустить аудиосистему. Пожалуйста, обновите браузер.");
+      return;
+    }
+
+    // 2. Показываем индикатор загрузки и блокируем пианино
+    loadingIndicator.style.display = "flex";
+    pianoContainer.style.pointerEvents = "none";
+
+    // 3. Запускаем загрузку звуков
+    pianoSoundService
+      .initialize()
+      .then(() => {
+        loadingIndicator.style.display = "none";
+        pianoContainer.style.pointerEvents = "auto";
+        console.log("Приложение готово к работе. Основные звуки загружены.");
+        statusMessage.textContent =
+          "Выберите ноту на пианино или пойте в микрофон";
+      })
+      .catch((err) => {
+        console.error("Критическая ошибка при загрузке звуков.", err);
+        loadingIndicator.textContent = "Ошибка загрузки звуков";
+      });
+  }
+
+  // Эта функция настраивает базовый интерфейс и решает, КАК запускать загрузку
   function initializeApp() {
     initializeSessionStats();
     loadProgress();
@@ -881,28 +856,28 @@ document.addEventListener("DOMContentLoaded", () => {
     resetDisplay();
     mainLoop();
 
-    // Показываем индикатор и блокируем пианино
-    loadingIndicator.style.display = "flex";
-    pianoContainer.style.pointerEvents = "none";
+    // ПРОВЕРЯЕМ ФЛАГ ИЗ sessionStorage
+    if (sessionStorage.getItem("startTunerPreload") === "true") {
+      // Флаг есть! Запускаем загрузку НЕМЕДЛЕННО.
+      console.log("Найден флаг предзагрузки. Запускаю загрузку аудио...");
 
-    pianoSoundService
-      .initialize()
-      .then(() => {
-        // Скрываем индикатор и разблокируем пианино после загрузки приоритетных семплов
-        loadingIndicator.style.display = "none";
-        pianoContainer.style.pointerEvents = "auto";
-        console.log("Приложение готово к работе. Основные звуки загружены.");
-      })
-      .catch((err) => {
-        console.error(
-          "Критическая ошибка при загрузке звуков. Функционал может быть ограничен.",
-          err
-        );
-        loadingIndicator.textContent = "Ошибка загрузки звуков";
-        // Пианино останется заблокированным
+      // Удаляем флаг, чтобы он не сработал снова при обновлении страницы
+      sessionStorage.removeItem("startTunerPreload");
+
+      startAudioLoadingProcess();
+    } else {
+      // Флага нет. Работаем по старой схеме - ждем клика на кнопку "Начать".
+      console.log("Флаг предзагрузки не найден. Ждем действия пользователя.");
+      loadingIndicator.style.display = "none";
+      startButton.addEventListener("click", startAudioLoadingProcess, {
+        once: true,
       });
+      statusMessage.textContent = "Нажмите 'Начать' для загрузки и калибровки";
+    }
   }
 
+  // Запускаем инициализацию
   initializeApp();
 });
-// --- END OF FILE js/tuner.js ---
+
+// --- КОНЕЦ КОДА ДЛЯ js/tuner.js ---

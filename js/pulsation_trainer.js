@@ -1,3 +1,5 @@
+// --- НАЧАЛО ОБНОВЛЕННОГО КОДА ДЛЯ js/pulsation_trainer.js ---
+
 document.addEventListener("DOMContentLoaded", () => {
   // --- DOM-элементы ---
   const startButton = document.getElementById("pulsationStartButton"),
@@ -70,10 +72,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let scrollOffsetPixels = 0,
     targetScrollOffset = 0,
     maxScrollOffset = 0;
-  // ИЗМЕНЕНИЕ: Переменные для правильной логики скролла
   let isManuallyScrolling = false,
     manualScrollTimeout,
     lastTouchY = 0;
+  let audioLoaded = false; // НОВЫЙ ФЛАГ
 
   // --- Переменные состояния упражнения ---
   let state = "SELECT_NOTE";
@@ -87,38 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let correctFrames = 0;
   let listeningTimeout = null;
 
-  async function init() {
-    loadingIndicator.style.display = "flex";
-    const urlParams = new URLSearchParams(window.location.search);
-    difficulty = urlParams.get("difficulty") || "normal";
-    switch (difficulty) {
-      case "easy":
-        centTolerance = 50;
-        break;
-      case "normal":
-        centTolerance = 30;
-        break;
-      case "hard":
-        centTolerance = 10;
-        break;
-    }
-
-    try {
-      await pianoSoundService.initialize();
-      setTimeout(() => {
-        setupUI();
-        setupScrollListeners(); // Инициализируем правильные слушатели
-        mainLoop();
-        loadingIndicator.style.display = "none";
-      }, 50);
-    } catch (error) {
-      console.error("Ошибка при загрузке звуков:", error);
-      loadingIndicator.textContent = "Ошибка загрузки!";
-    }
-  }
-
   function mainLoop() {
-    // ИЗМЕНЕНИЕ: Полностью заменена логика прокрутки
     let distance = targetScrollOffset - scrollOffsetPixels;
     if (Math.abs(distance) > 0.01) {
       scrollOffsetPixels += distance * 0.1;
@@ -129,7 +100,6 @@ document.addEventListener("DOMContentLoaded", () => {
       pianoContainer.style.transform = `translateY(-${scrollOffsetPixels}px)`;
       canvas.style.transform = `translateY(-${scrollOffsetPixels}px)`;
     }
-
     let currentPitch = null;
     if (isListening) {
       analyser.getFloatTimeDomainData(dataArray);
@@ -137,81 +107,80 @@ document.addEventListener("DOMContentLoaded", () => {
       for (let i = 0; i < dataArray.length; i++)
         rms += dataArray[i] * dataArray[i];
       rms = Math.sqrt(rms / dataArray.length);
-
-      if (rms > 0.025) {
-        currentPitch = yin(dataArray, audioContext.sampleRate);
-      }
+      if (rms > 0.025) currentPitch = yin(dataArray, audioContext.sampleRate);
       const pitchInfo = frequencyToNoteDetails(currentPitch);
       updatePitchDisplay(pitchInfo);
-
       if (state === "LISTENING") {
         const isNoteCorrect =
           pitchInfo &&
           pitchInfo.noteNum === currentNoteNum &&
           Math.abs(pitchInfo.cents) <= centTolerance;
-        if (isNoteCorrect) {
-          correctFrames++;
-        } else {
-          correctFrames = Math.max(0, correctFrames - 2);
-        }
+        if (isNoteCorrect) correctFrames++;
+        else correctFrames = Math.max(0, correctFrames - 2);
         if (correctFrames >= REQUIRED_CORRECT_FRAMES) {
           if (listeningTimeout) clearTimeout(listeningTimeout);
           handleCorrectNote();
         }
       }
     }
-
     pitchHistory.push(currentPitch);
     if (pitchHistory.length > PITCH_HISTORY_SIZE) pitchHistory.shift();
-
     drawPitchGraph();
     requestAnimationFrame(mainLoop);
   }
 
-  // ... (остальные функции: setState, handleKeyClick, startExercise, playPattern, и т.д. остаются без изменений)
-
+  // ... (Большинство функций остаются без изменений, сворачиваю для краткости)
   function setState(newState) {
     state = newState;
     updateUI();
   }
-
   function handleKeyClick(event) {
     if (state !== "SELECT_NOTE" && state !== "READY") return;
     const key = event.currentTarget;
     const noteName = key.dataset.note;
+    if (!audioLoaded) {
+      startAudioLoadingProcess().then(() => {
+        pianoSoundService.playSound(noteName);
+      });
+    } else {
+      pianoSoundService.playSound(noteName);
+    }
     startNoteNum = noteToNoteNum(noteName);
     currentNoteNum = startNoteNum;
-
     document
       .querySelectorAll(".key.target")
       .forEach((k) => k.classList.remove("target"));
     key.classList.add("target");
-
-    pianoSoundService.playSound(noteName);
     scrollToNote(startNoteNum, true);
     setState("READY");
   }
-
   function startExercise() {
     if (state !== "READY") return;
-    initAudioContext();
-    if (!isListening) startListening();
-
+    if (!audioLoaded) {
+      startAudioLoadingProcess().then(() => {
+        initAudioContext();
+        if (!isListening) startListening();
+        runExerciseLogic();
+      });
+    } else {
+      initAudioContext();
+      if (!isListening) startListening();
+      runExerciseLogic();
+    }
+  }
+  function runExerciseLogic() {
     attemptsPerNote = {};
     attemptsPerNote[startNoteNum] = 1;
     direction = "up";
     limitNoteNum = null;
-
     playPattern(currentNoteNum);
   }
-
   function playPattern(noteNum) {
     setState("PLAYING");
     const noteName = noteNumToNote(noteNum);
     progressElement.textContent = `Пойте: ${noteName}`;
     highlightTargetKey(noteName);
     scrollToNote(noteNum, false);
-
     let delay = 0;
     for (let i = 0; i < 4; i++) {
       setTimeout(() => pianoSoundService.playSound(noteName), delay);
@@ -225,12 +194,10 @@ document.addEventListener("DOMContentLoaded", () => {
       listeningTimeout = setTimeout(handleIncorrectNote, 6000);
     }, delay);
   }
-
   function handleCorrectNote() {
     if (state !== "LISTENING") return;
     setState("FEEDBACK");
     instructionsElement.textContent = "Отлично!";
-
     setTimeout(() => {
       if (direction === "up") {
         currentNoteNum++;
@@ -253,36 +220,29 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }, 1000);
   }
-
   function handleIncorrectNote() {
     if (state !== "LISTENING") return;
     attemptsPerNote[currentNoteNum]++;
     playPattern(currentNoteNum);
   }
-
   function handleLimitReached() {
     if (direction !== "up" || state === "FINISHED") return;
     if (listeningTimeout) clearTimeout(listeningTimeout);
-
     limitNoteNum = currentNoteNum - 1;
     direction = "down";
     currentNoteNum--;
-
     if (currentNoteNum < startNoteNum) {
       finishExercise();
       return;
     }
-
     if (!attemptsPerNote[currentNoteNum]) attemptsPerNote[currentNoteNum] = 1;
     playPattern(currentNoteNum);
   }
-
   function finishExercise() {
     setState("FINISHED");
     stopListening();
     showResults();
   }
-
   function showResults() {
     const finalLimitNote =
       limitNoteNum !== null
@@ -299,17 +259,11 @@ document.addEventListener("DOMContentLoaded", () => {
     ).length;
     const accuracy =
       totalNotes > 0 ? (firstAttemptSuccesses / totalNotes) * 100 : 0;
-
-    resultsContent.innerHTML = `
-            <div class="stat-item"><span class="stat-label">Рабочий диапазон</span><span class="stat-value">${range}</span></div>
-            <div class="stat-item"><span class="stat-label">Точность с 1-й попытки</span><span class="stat-value">${accuracy.toFixed(
-              0
-            )}%</span></div>
-            <div class="stat-item"><span class="stat-label">Пропето нот</span><span class="stat-value">${totalNotes} (${firstAttemptSuccesses} с 1-й попытки)</span></div>
-        `;
+    resultsContent.innerHTML = `<div class="stat-item"><span class="stat-label">Рабочий диапазон</span><span class="stat-value">${range}</span></div><div class="stat-item"><span class="stat-label">Точность с 1-й попытки</span><span class="stat-value">${accuracy.toFixed(
+      0
+    )}%</span></div><div class="stat-item"><span class="stat-label">Пропето нот</span><span class="stat-value">${totalNotes} (${firstAttemptSuccesses} с 1-й попытки)</span></div>`;
     resultsModal.classList.remove("hidden");
   }
-
   function resetExercise() {
     stopListening();
     if (listeningTimeout) clearTimeout(listeningTimeout);
@@ -324,7 +278,6 @@ document.addEventListener("DOMContentLoaded", () => {
       .forEach((k) => k.classList.remove("target", "target-exercise"));
     setState("SELECT_NOTE");
   }
-
   function updateUI() {
     startButton.classList.remove("hidden");
     switch (state) {
@@ -366,7 +319,6 @@ document.addEventListener("DOMContentLoaded", () => {
         break;
     }
   }
-
   function updatePitchDisplay(pitchInfo) {
     if (pitchInfo) {
       noteElement.textContent = pitchInfo.note;
@@ -382,7 +334,6 @@ document.addEventListener("DOMContentLoaded", () => {
       updateTuner(null);
     }
   }
-
   function highlightTargetKey(noteName) {
     document
       .querySelectorAll(".key.target-exercise")
@@ -393,7 +344,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (key) key.classList.add("target-exercise");
     }
   }
-
   function updateTuner(cents) {
     if (cents === null) {
       tunerIndicator.style.opacity = "0";
@@ -404,20 +354,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const percentage = 50 + clampedCents;
     tunerIndicator.style.left = `${percentage}%`;
   }
-
   startButton.addEventListener("click", () => {
-    if (state === "READY") {
-      startExercise();
-    } else if (state === "LISTENING") {
-      finishExercise();
-    }
+    if (state === "READY") startExercise();
+    else if (state === "LISTENING") finishExercise();
   });
   limitButton.addEventListener("click", handleLimitReached);
   restartButton.addEventListener("click", resetExercise);
   backToMenuButton.addEventListener("click", () => {
     window.location.href = "trainer_menu.html";
   });
-
   function setupUI() {
     const totalWhiteKeys = Array.from(
       { length: MAX_NOTE_NUM - MIN_NOTE_NUM + 1 },
@@ -458,7 +403,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     scrollToNote(48, true);
   }
-
   const noteNumToY = (num) => {
     const int = Math.floor(num);
     const whiteKeysAbove = Array.from(
@@ -471,12 +415,10 @@ document.addEventListener("DOMContentLoaded", () => {
       name === "E" || name === "B" ? WHITE_KEY_PIXELS : WHITE_KEY_PIXELS / 2;
     return yBoundary + semitoneHeight - (num - int) * semitoneHeight;
   };
-
   function drawPitchGraph() {
     const width = canvas.width,
       height = canvas.height;
     canvasCtx.clearRect(0, 0, width, height);
-
     const totalWhiteKeys = Array.from(
       { length: MAX_NOTE_NUM - MIN_NOTE_NUM + 1 },
       (_, i) => i + MIN_NOTE_NUM
@@ -490,7 +432,6 @@ document.addEventListener("DOMContentLoaded", () => {
       canvasCtx.lineTo(width, y);
       canvasCtx.stroke();
     }
-
     if (state === "LISTENING" || state === "PLAYING" || state === "FEEDBACK") {
       const keyElement = document.getElementById(
         `key-${noteNumToNote(currentNoteNum).replace("#", "s")}`
@@ -505,7 +446,6 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       }
     }
-
     canvasCtx.strokeStyle = "#ffc107";
     canvasCtx.lineWidth = 2;
     canvasCtx.beginPath();
@@ -528,8 +468,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     canvasCtx.stroke();
   }
-
-  // ИЗМЕНЕНИЕ: Полностью новая, правильная функция для управления скроллом
   function setupScrollListeners() {
     const startManualScroll = () => {
       isManuallyScrolling = true;
@@ -540,7 +478,6 @@ document.addEventListener("DOMContentLoaded", () => {
         isManuallyScrolling = false;
       }, 2000);
     };
-
     mainContent.addEventListener("wheel", (e) => {
       e.preventDefault();
       startManualScroll();
@@ -551,7 +488,6 @@ document.addEventListener("DOMContentLoaded", () => {
       );
       endManualScroll();
     });
-
     mainContent.addEventListener(
       "touchstart",
       (e) => {
@@ -560,7 +496,6 @@ document.addEventListener("DOMContentLoaded", () => {
       },
       { passive: false }
     );
-
     mainContent.addEventListener(
       "touchmove",
       (e) => {
@@ -575,10 +510,8 @@ document.addEventListener("DOMContentLoaded", () => {
       },
       { passive: false }
     );
-
     mainContent.addEventListener("touchend", endManualScroll);
   }
-
   function scrollToNote(num, immediate = false) {
     if (num === null || isManuallyScrolling) return;
     const yPos = noteNumToY(num);
@@ -593,7 +526,6 @@ document.addEventListener("DOMContentLoaded", () => {
       canvas.style.transform = `translateY(-${scrollOffsetPixels}px)`;
     }
   }
-
   function initAudioContext() {
     if (!audioContext) {
       try {
@@ -607,7 +539,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (audioContext.state === "suspended") audioContext.resume();
   }
-
   async function startListening() {
     if (isListening || !audioContext) return;
     try {
@@ -623,7 +554,6 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Microphone access error:", err);
     }
   }
-
   function stopListening() {
     if (!isListening || !sourceNode) return;
     sourceNode.mediaStream.getTracks().forEach((track) => track.stop());
@@ -631,7 +561,6 @@ document.addEventListener("DOMContentLoaded", () => {
     sourceNode = null;
     isListening = false;
   }
-
   function yin(buffer, sampleRate) {
     const threshold = 0.12,
       bufferSize = buffer.length,
@@ -685,5 +614,67 @@ document.addEventListener("DOMContentLoaded", () => {
     return pitchInHz > 50 && pitchInHz < 3000 ? pitchInHz : null;
   }
 
+  // --- НОВАЯ УНИВЕРСАЛЬНАЯ ЛОГИКА ИНИЦИАЛИЗАЦИИ ---
+
+  async function startAudioLoadingProcess() {
+    initAudioContext();
+    if (!audioContext) {
+      alert("Не удалось запустить аудиосистему.");
+      return Promise.reject("AudioContext not supported");
+    }
+
+    loadingIndicator.style.display = "flex";
+    pianoContainer.style.pointerEvents = "none";
+
+    try {
+      await pianoSoundService.initialize();
+      audioLoaded = true;
+      loadingIndicator.style.display = "none";
+      pianoContainer.style.pointerEvents = "auto";
+      console.log("Звуки для тренажера-пульсации загружены.");
+    } catch (error) {
+      console.error("Ошибка при загрузке звуков:", error);
+      loadingIndicator.textContent = "Ошибка загрузки!";
+      throw error;
+    }
+  }
+
+  async function init() {
+    const urlParams = new URLSearchParams(window.location.search);
+    difficulty = urlParams.get("difficulty") || "normal";
+    switch (difficulty) {
+      case "easy":
+        centTolerance = 50;
+        break;
+      case "normal":
+        centTolerance = 30;
+        break;
+      case "hard":
+        centTolerance = 10;
+        break;
+    }
+
+    // Сразу настраиваем UI без ожидания звуков
+    setTimeout(() => {
+      setupUI();
+      setupScrollListeners();
+      mainLoop();
+      loadingIndicator.style.display = "none";
+    }, 50);
+
+    // ПРОВЕРЯЕМ ФЛАГ ПРЕДЗАГРУЗКИ
+    if (sessionStorage.getItem("startTrainerPreload") === "true") {
+      sessionStorage.removeItem("startTrainerPreload");
+      console.log(
+        "Найден флаг предзагрузки для тренажера-пульсации. Запускаю загрузку аудио..."
+      );
+      startAudioLoadingProcess();
+    } else {
+      console.log("Флаг предзагрузки не найден. Ждем действия пользователя.");
+      // Загрузка начнется по первому клику на клавишу
+    }
+  }
+
   init();
 });
+// --- КОНЕЦ ОБНОВЛЕННОГО КОДА ДЛЯ js/pulsation_trainer.js ---

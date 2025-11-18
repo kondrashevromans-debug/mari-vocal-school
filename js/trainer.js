@@ -1,4 +1,4 @@
-// --- START OF FILE js/trainer.js ---
+// --- НАЧАЛО ОБНОВЛЕННОГО КОДА ДЛЯ js/trainer.js ---
 
 document.addEventListener("DOMContentLoaded", () => {
   // --- DOM-элементы ---
@@ -71,91 +71,14 @@ document.addEventListener("DOMContentLoaded", () => {
     difficulty = "normal";
   let centTolerance = 35;
   let currentExercise = null,
-    originalExercise = null, // сохраняем исходное упражнение до выбора стартовой ноты
+    originalExercise = null,
     currentNoteIndex = -1,
     state = "IDLE",
     noteStartTime = 0,
     allNoteScores = [],
     noteResetTimeout = null,
-    selectedStartNote = null; // отслеживаем выбранную стартовую ноту
-
-  async function init() {
-    startButton.disabled = true;
-    loadingIndicator.style.display = "flex";
-
-    const urlParams = new URLSearchParams(window.location.search);
-    exerciseId = urlParams.get("exercise");
-    octaveShift = parseInt(urlParams.get("shift") || "0");
-    holdDuration = parseFloat(urlParams.get("hold") || "1.0");
-    difficulty = urlParams.get("difficulty") || "normal";
-
-    if (!exerciseId) {
-      loadingIndicator.textContent = "Ошибка: не указано упражнение.";
-      return;
-    }
-
-    switch (difficulty) {
-      case "easy":
-        centTolerance = 50;
-        break;
-      case "normal":
-        centTolerance = 30;
-        break;
-      case "hard":
-        centTolerance = 10;
-        break;
-      default:
-        centTolerance = 30;
-    }
-
-    try {
-      // Определяем локальную функцию для загрузки данных упражнения
-      const fetchExercise = async () => {
-        const response = await fetch(
-          `/mari-vocal-school/data/trainers/${exerciseId}.json`
-        );
-        if (!response.ok) {
-          throw new Error(
-            `Не удалось загрузить файл упражнения: ${response.statusText}`
-          );
-        }
-        return response.json();
-      };
-
-      // Параллельно загружаем звуки и данные упражнения
-      const [_, loadedExercise] = await Promise.all([
-        pianoSoundService.initialize(),
-        fetchExercise(),
-      ]);
-
-      // Сохраняем оригинальное упражнение для последующей обработки при выборе стартовой ноты
-      originalExercise = loadedExercise;
-      // Временно применяем сдвиг, чтобы отобразить инструкцию с правильным заголовком
-      currentExercise = applyOctaveShift(loadedExercise, octaveShift);
-      trainerTitleElement.textContent = currentExercise.title;
-
-      // Показываем инструкцию о выборе стартовой ноты вместо названия упражнения
-      instructionsElement.textContent =
-        "Кликните по ноте на пианино, с которой хотите начать упражнение";
-      progressElement.textContent = "";
-
-      // Используем setTimeout для гарантии что DOM полностью готов
-      setTimeout(() => {
-        setupUI();
-        resetExercise();
-        mainLoop();
-        loadingIndicator.style.display = "none";
-      }, 50);
-    } catch (error) {
-      console.error("Ошибка при загрузке данных упражнения:", error);
-      loadingIndicator.textContent = "Ошибка загрузки упражнения!";
-      mainContent.innerHTML = `<div class="error-container">
-          <h2>Ошибка загрузки</h2>
-          <p>Не удалось загрузить данные для тренажера. Пожалуйста, попробуйте вернуться в меню.</p>
-          <a href="trainer_menu.html" class="button-link">Вернуться в меню</a>
-        </div>`;
-    }
-  }
+    selectedStartNote = null;
+  let audioLoaded = false; // НОВЫЙ ФЛАГ для отслеживания загрузки аудио
 
   function mainLoop() {
     let distance = targetScrollOffset - scrollOffsetPixels;
@@ -183,9 +106,8 @@ document.addEventListener("DOMContentLoaded", () => {
           pitchInfo = frequencyToNoteDetails(pitch);
         }
       }
-      if (lastFramePitch === null && currentPitch !== null) {
+      if (lastFramePitch === null && currentPitch !== null)
         ignoreFramesCounter = 10;
-      }
       let pitchToProcess = currentPitch;
       if (ignoreFramesCounter > 0) {
         pitchToProcess = null;
@@ -204,9 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
             clearTimeout(noteResetTimeout);
             noteResetTimeout = null;
           }
-          if (noteStartTime === 0) {
-            noteStartTime = Date.now();
-          }
+          if (noteStartTime === 0) noteStartTime = Date.now();
           if ((Date.now() - noteStartTime) / 1000 >= holdDuration) {
             allNoteScores.push({
               note: currentExercise.notes[currentNoteIndex].noteName,
@@ -230,6 +150,9 @@ document.addEventListener("DOMContentLoaded", () => {
     drawPitchGraph();
     requestAnimationFrame(mainLoop);
   }
+
+  // ... (Остальные функции тренажера: resetExercise, startExercise, goToNextNote и т.д. остаются без изменений)
+  // Я их сверну для краткости, они идентичны вашим.
   function resetExercise() {
     state = "IDLE";
     currentNoteIndex = -1;
@@ -237,42 +160,30 @@ document.addEventListener("DOMContentLoaded", () => {
     if (noteResetTimeout) clearTimeout(noteResetTimeout);
     noteResetTimeout = null;
     noteStartTime = 0;
-    selectedStartNote = null; // Сбрасываем выбранную ноту
-    currentExercise = applyOctaveShift(originalExercise, octaveShift); // Восстанавливаем исходное упражнение без сдвига
+    selectedStartNote = null;
+    currentExercise = applyOctaveShift(originalExercise, octaveShift);
     updateUI();
-
-    // Очищаем выделение клавиши
     document
       .querySelectorAll(".key.target")
       .forEach((k) => k.classList.remove("target"));
-
-    // Возвращаем инструкцию о выборе ноты
     instructionsElement.textContent =
       "Кликните по ноте на пианино, с которой хотите начать упражнение";
     progressElement.textContent = "";
-
     startButton.textContent = "Начать упражнение";
-    startButton.disabled = true; // Блокируем кнопку, пока не выбрана нота
+    startButton.disabled = true;
     stopButton.classList.add("hidden");
-
-    // Сбрасываем прокрутку
     scrollOffsetPixels = 0;
     targetScrollOffset = 0;
     const pianoViewport = document.querySelector(".piano-viewport");
-    if (pianoViewport) {
-      pianoViewport.scrollTop = 0;
-    }
+    if (pianoViewport) pianoViewport.scrollTop = 0;
   }
   function startExercise() {
     if (state !== "IDLE") return;
-
-    // Проверяем, была ли выбрана стартовая нота
     if (!selectedStartNote) {
       instructionsElement.textContent =
         "Пожалуйста, сначала выберите ноту на пианино";
       return;
     }
-
     initAudioContext();
     if (!isListening) startListening();
     allNoteScores = [];
@@ -438,7 +349,6 @@ document.addEventListener("DOMContentLoaded", () => {
       canvasCtx.lineTo(width, y);
       canvasCtx.stroke();
     }
-    // Подсвечиваем выбранную стартовую ноту (при выборе ноты в режиме IDLE)
     if (state === "IDLE" && selectedStartNote) {
       const keyElementId = "key-" + selectedStartNote.replace("#", "s");
       const keyElement = document.getElementById(keyElementId);
@@ -514,105 +424,63 @@ document.addEventListener("DOMContentLoaded", () => {
     const cents = 1200 * Math.log2(freq / idealFreq);
     return { note, octave: oct, cents, noteNum: roundNum };
   }
-
-  /**
-   * Проверяет, приведёт ли выбор стартовой ноты к выходу ноты упражнения за диапазон.
-   * Возвращает true, если все ноты упражнения будут в диапазоне [MIN_NOTE_NUM, MAX_NOTE_NUM].
-   */
   function isStartNoteValid(startNoteNum, exercise) {
-    if (!exercise || !exercise.notes || exercise.notes.length === 0) {
-      return true; // Если нет нот в упражнении, ничего не проверяем
-    }
+    if (!exercise || !exercise.notes || exercise.notes.length === 0)
+      return true;
     const firstNoteNum = noteToNoteNum(exercise.notes[0].noteName);
     if (firstNoteNum === null) return false;
-
     const semitoneShift = startNoteNum - firstNoteNum;
-
-    // Проверяем каждую ноту упражнения после сдвига
     for (const note of exercise.notes) {
       const noteNum = noteToNoteNum(note.noteName);
       if (noteNum === null) return false;
       const shiftedNoteNum = noteNum + semitoneShift;
-      if (shiftedNoteNum < MIN_NOTE_NUM || shiftedNoteNum > MAX_NOTE_NUM) {
+      if (shiftedNoteNum < MIN_NOTE_NUM || shiftedNoteNum > MAX_NOTE_NUM)
         return false;
-      }
     }
     return true;
   }
-
-  /**
-   * Отключает (добавляет класс .disabled) клавиши, которые приведут к выходу за диапазон.
-   */
   function updateDisabledKeys(exercise) {
-    // Удаляем предыдущие отключения
-    document.querySelectorAll(".key.disabled").forEach((k) => {
-      k.classList.remove("disabled");
-    });
-
-    // Проверяем каждую возможную стартовую ноту в диапазоне пианино
+    document
+      .querySelectorAll(".key.disabled")
+      .forEach((k) => k.classList.remove("disabled"));
     for (let i = MIN_NOTE_NUM; i <= MAX_NOTE_NUM; i++) {
-      const noteNum = i;
-      if (!isStartNoteValid(noteNum, exercise)) {
-        // Отключаем эту клавишу
-        const noteName = noteStrings[noteNum % 12];
-        const octave = Math.floor(noteNum / 12);
+      if (!isStartNoteValid(i, exercise)) {
+        const noteName = noteStrings[i % 12];
+        const octave = Math.floor(i / 12);
         const keyId = `key-${(noteName + octave).replace("#", "s")}`;
         const keyElement = document.getElementById(keyId);
-        if (keyElement) {
-          keyElement.classList.add("disabled");
-        }
+        if (keyElement) keyElement.classList.add("disabled");
       }
     }
   }
-
-  /**
-   * Обработчик клика по клавише пианино для выбора стартовой ноты.
-   */
   function onKeyClickForStartNote(event) {
-    // Игнорируем клики, если упражнение уже начато
-    if (state !== "IDLE") {
-      return;
-    }
-
+    if (state !== "IDLE") return;
     const key = event.currentTarget;
-    if (key.classList.contains("disabled")) {
-      return; // Игнорируем клики по отключённым клавишам
+    if (key.classList.contains("disabled")) return;
+    if (!audioLoaded) {
+      startAudioLoadingProcess().then(() => {
+        pianoSoundService.playSound(key.dataset.note);
+      });
+    } else {
+      pianoSoundService.playSound(key.dataset.note);
     }
-
-    const noteName = key.dataset.note; // e.g. "C4"
+    const noteName = key.dataset.note;
     if (!noteName || !originalExercise) return;
-
     const startNoteNum = noteToNoteNum(noteName);
     if (startNoteNum === null) return;
-
-    // Сохраняем выбранную ноту
     selectedStartNote = noteName;
-
-    // Вычисляем смещение в полутоновах
     const firstNoteNum = noteToNoteNum(originalExercise.notes[0].noteName);
     const semitoneShift = startNoteNum - firstNoteNum;
-
-    // Применяем транспозицию
     currentExercise = applyOctaveShift(originalExercise, semitoneShift);
-
-    // Обновляем инструкцию и заголовок
     instructionsElement.textContent = `Стартовая нота: ${noteName}. Нажмите "Начать упражнение"`;
     progressElement.textContent = `Выбранная нота: ${noteName}`;
-
-    // Отмечаем выбранную клавишу
     document
       .querySelectorAll(".key.target")
       .forEach((k) => k.classList.remove("target"));
     key.classList.add("target");
-
-    // Воспроизводим звук выбранной ноты
     initAudioContext();
-    pianoSoundService.playSound(noteName);
-
-    // Разблокируем кнопку "Начать"
     startButton.disabled = false;
   }
-
   const noteNumToY = (num) => {
     const int = Math.floor(num);
     const whiteKeysAbove = Array.from(
@@ -631,27 +499,17 @@ document.addEventListener("DOMContentLoaded", () => {
       (_, i) => i + MIN_NOTE_NUM
     ).filter((n) => !noteStrings[n % 12].includes("#")).length;
     const totalHeight = totalWhiteKeys * WHITE_KEY_PIXELS;
-
-    // Устанавливаем высоту контейнеров
     pianoContainer.style.height = `${totalHeight}px`;
     canvas.height = totalHeight;
-
-    // Устанавливаем ширину canvas
     const pianoViewport = document.querySelector(".piano-viewport");
     if (pianoViewport) {
-      // canvas находится в .canvas-viewport внутри .main-content
       const canvasViewport = document.querySelector(".canvas-viewport");
-      if (canvasViewport) {
-        canvas.width = canvasViewport.clientWidth;
-      }
+      if (canvasViewport) canvas.width = canvasViewport.clientWidth;
     }
-
-    // maxScrollOffset используется для transform-based scrolling
     maxScrollOffset = Math.max(
       0,
       totalHeight - (pianoViewport?.clientHeight || 500)
     );
-
     pianoContainer.innerHTML = "";
     let currentY = 0;
     for (let i = MAX_NOTE_NUM; i >= MIN_NOTE_NUM; i--) {
@@ -661,7 +519,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const key = document.createElement("div");
       key.className = `key ${isBlack ? "black" : "white"}`;
       key.id = `key-${(noteName + oct).replace("#", "s")}`;
-      key.dataset.note = `${noteName}${oct}`; // Сохраняем ноту для обработчика клика
+      key.dataset.note = `${noteName}${oct}`;
       const label = document.createElement("span");
       label.className = "key-label";
       if (!isBlack) {
@@ -677,15 +535,10 @@ document.addEventListener("DOMContentLoaded", () => {
         label.innerHTML = `${noteName}<br>${sharpToFlat[noteName]}`;
         key.appendChild(label);
       }
-      // Добавляем обработчик клика для выбора стартовой ноты (если мы в режиме выбора)
       key.addEventListener("click", onKeyClickForStartNote);
       pianoContainer.appendChild(key);
     }
-
-    // Отключаем клавиши, которые приведут к выходу за диапазон
-    if (originalExercise) {
-      updateDisabledKeys(originalExercise);
-    }
+    if (originalExercise) updateDisabledKeys(originalExercise);
   }
   function scrollToNote(num, immediate = false) {
     if (num === null) return;
@@ -695,9 +548,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ).filter((n) => !noteStrings[n % 12].includes("#")).length;
     const yPos = whiteKeysAbove * WHITE_KEY_PIXELS + WHITE_KEY_PIXELS / 2;
     targetScrollOffset = yPos - mainContent.clientHeight / 2;
-    if (immediate) {
-      scrollOffsetPixels = targetScrollOffset;
-    }
+    if (immediate) scrollOffsetPixels = targetScrollOffset;
   }
   function initAudioContext() {
     if (!audioContext) {
@@ -786,15 +637,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return pitchInHz > 50 && pitchInHz < 3000 ? pitchInHz : -1;
   }
-
   function playReferenceNote() {
     const noteName = currentExercise.notes[currentNoteIndex].noteName;
-    if (noteName) {
-      pianoSoundService.playSound(noteName);
-    }
+    if (noteName) pianoSoundService.playSound(noteName);
   }
-
-  startButton.addEventListener("click", startExercise);
+  startButton.addEventListener("click", () => {
+    if (!audioLoaded) {
+      startAudioLoadingProcess().then(startExercise);
+    } else {
+      startExercise();
+    }
+  });
   stopButton.addEventListener("click", () => {
     if (isListening) stopListening();
     resetExercise();
@@ -807,24 +660,19 @@ document.addEventListener("DOMContentLoaded", () => {
   backToMenuButton.addEventListener("click", () => {
     window.location.href = "trainer_menu.html";
   });
-
-  // Синхронизируем прокрутку пианино и графика
   const pianoViewport = document.querySelector(".piano-viewport");
   let isManuallyScrolling = false;
   let lastTouchY = 0;
   let manualScrollTimeout = null;
-
   function startManualScroll() {
     isManuallyScrolling = true;
     clearTimeout(manualScrollTimeout);
   }
-
   function endManualScroll() {
     manualScrollTimeout = setTimeout(() => {
       isManuallyScrolling = false;
     }, 2000);
   }
-
   if (mainContent) {
     mainContent.addEventListener("wheel", (e) => {
       e.preventDefault();
@@ -832,24 +680,115 @@ document.addEventListener("DOMContentLoaded", () => {
       targetScrollOffset += e.deltaY;
       endManualScroll();
     });
-
     mainContent.addEventListener("touchstart", (e) => {
       startManualScroll();
       lastTouchY = e.touches[0].clientY;
     });
-
     mainContent.addEventListener("touchmove", (e) => {
       const currentY = e.touches[0].clientY;
       const deltaY = lastTouchY - currentY;
       targetScrollOffset += deltaY;
       lastTouchY = currentY;
     });
-
     window.addEventListener("touchend", () => {
       endManualScroll();
     });
   }
 
+  async function startAudioLoadingProcess() {
+    initAudioContext();
+    if (!audioContext) {
+      alert("Не удалось запустить аудиосистему.");
+      return Promise.reject("AudioContext not supported");
+    }
+
+    loadingIndicator.style.display = "flex"; // Показываем индикатор
+    pianoContainer.style.pointerEvents = "none";
+
+    try {
+      await pianoSoundService.initialize();
+      audioLoaded = true;
+      loadingIndicator.style.display = "none"; // Скрываем индикатор
+      pianoContainer.style.pointerEvents = "auto";
+      console.log("Звуки для тренажера загружены.");
+    } catch (err) {
+      console.error("Критическая ошибка при загрузке звуков.", err);
+      loadingIndicator.textContent = "Ошибка загрузки звуков";
+      throw err;
+    }
+  }
+
+  async function init() {
+    // --- ИЗМЕНЕНИЕ: Скрываем индикатор загрузки в самом начале ---
+    if (loadingIndicator) loadingIndicator.style.display = "none";
+
+    startButton.disabled = true;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    exerciseId = urlParams.get("exercise");
+    octaveShift = parseInt(urlParams.get("shift") || "0");
+    holdDuration = parseFloat(urlParams.get("hold") || "1.0");
+    difficulty = urlParams.get("difficulty") || "normal";
+
+    if (!exerciseId) {
+      instructionsElement.textContent = "Ошибка: не указано упражнение.";
+      return;
+    }
+
+    switch (difficulty) {
+      case "easy":
+        centTolerance = 50;
+        break;
+      case "normal":
+        centTolerance = 30;
+        break;
+      case "hard":
+        centTolerance = 10;
+        break;
+      default:
+        centTolerance = 30;
+    }
+
+    // Загружаем данные упражнения СРАЗУ
+    try {
+      const response = await fetch(
+        `/mari-vocal-school/data/trainers/${exerciseId}.json`
+      );
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
+      originalExercise = await response.json();
+      currentExercise = applyOctaveShift(originalExercise, octaveShift);
+      trainerTitleElement.textContent = currentExercise.title;
+      instructionsElement.textContent =
+        "Кликните по ноте на пианино, с которой хотите начать упражнение";
+      progressElement.textContent = "";
+
+      setTimeout(() => {
+        setupUI();
+        resetExercise();
+        mainLoop();
+      }, 50);
+    } catch (error) {
+      console.error("Ошибка при загрузке данных упражнения:", error);
+      loadingIndicator.style.display = "flex";
+      loadingIndicator.textContent = "Ошибка загрузки упражнения!";
+      mainContent.innerHTML = `<div class="error-container"><h2>Ошибка загрузки</h2><p>Не удалось загрузить данные. Пожалуйста, попробуйте вернуться в меню.</p><a href="trainer_menu.html" class="button-link">Вернуться в меню</a></div>`;
+      return;
+    }
+
+    // ПРОВЕРЯЕМ ФЛАГ ПРЕДЗАГРУЗКИ
+    if (sessionStorage.getItem("startTrainerPreload") === "true") {
+      sessionStorage.removeItem("startTrainerPreload");
+      console.log(
+        "Найден флаг предзагрузки для тренажера. Запускаю загрузку аудио..."
+      );
+      startAudioLoadingProcess();
+    } else {
+      console.log("Флаг предзагрузки не найден. Ждем действия пользователя.");
+      // Ничего не делаем, индикатор уже скрыт. Загрузка начнется по клику.
+    }
+  }
+
   init();
 });
-// --- END OF FILE js/trainer.js ---
+// --- КОНЕЦ ОБНОВЛЕННОГО КОДА ДЛЯ js/trainer.js ---
