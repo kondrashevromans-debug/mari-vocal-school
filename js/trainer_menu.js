@@ -105,32 +105,6 @@ document.addEventListener("DOMContentLoaded", () => {
     card.appendChild(startLink);
     container.appendChild(card);
     updateLink();
-
-    // --- ДОБАВЛЕНО: Инициализация аудио при первом запуске тренажёра ---
-    let audioInitialized = false;
-    startLink.addEventListener("click", async (e) => {
-      // Проверка: если аудио уже загружены, ничего не делаем
-      if (!audioInitialized) {
-        e.preventDefault();
-        // Показываем индикатор загрузки (можно добавить отдельный элемент)
-        if (window.loadingIndicator)
-          window.loadingIndicator.style.display = "flex";
-        try {
-          await pianoSoundService.initialize();
-          audioInitialized = true;
-          if (window.loadingIndicator)
-            window.loadingIndicator.style.display = "none";
-          // После загрузки приоритетных аудио — переход по ссылке
-          window.location.href = startLink.href;
-        } catch (err) {
-          if (window.loadingIndicator)
-            window.loadingIndicator.textContent = "Ошибка загрузки звуков";
-          alert("Ошибка загрузки аудио");
-        }
-      }
-      // Если уже загружено — переход по ссылке сразу
-      // (если e.preventDefault не сработал, переход произойдет автоматически)
-    });
   }
 
   function createControl(labelText, settings, initialIndex, callback) {
