@@ -873,6 +873,8 @@ document.addEventListener("DOMContentLoaded", () => {
   octaveDownBtn.addEventListener("click", () => jumpOctave(1));
 
   // --- ИНИЦИАЛИЗАЦИЯ СЕРВИСА ---
+
+  let audioInitialized = false;
   function initializeApp() {
     initializeSessionStats();
     loadProgress();
@@ -880,15 +882,19 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("resize", setupUI);
     resetDisplay();
     mainLoop();
+    // Индикатор загрузки и блокировка пианино — теперь только при реальной инициализации аудио
+  }
 
-    // Показываем индикатор и блокируем пианино
+  initializeApp();
+
+  function initializeAudioOnUserAction() {
+    if (audioInitialized) return;
+    audioInitialized = true;
     loadingIndicator.style.display = "flex";
     pianoContainer.style.pointerEvents = "none";
-
     pianoSoundService
       .initialize()
       .then(() => {
-        // Скрываем индикатор и разблокируем пианино после загрузки приоритетных семплов
         loadingIndicator.style.display = "none";
         pianoContainer.style.pointerEvents = "auto";
         console.log("Приложение готово к работе. Основные звуки загружены.");
@@ -899,10 +905,13 @@ document.addEventListener("DOMContentLoaded", () => {
           err
         );
         loadingIndicator.textContent = "Ошибка загрузки звуков";
-        // Пианино останется заблокированным
       });
   }
 
-  initializeApp();
+  // Инициализация аудио при первом взаимодействии пользователя
+  startButton.addEventListener("click", () => {
+    initializeAudioOnUserAction();
+    // ...existing code...
+  });
 });
 // --- END OF FILE js/tuner.js ---
