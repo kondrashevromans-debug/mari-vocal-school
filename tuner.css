@@ -23,7 +23,8 @@
 .canvas-viewport {
   flex-grow: 1;
   height: 100%;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
 }
 
@@ -138,11 +139,12 @@
 /* =================================== */
 
 .piano-viewport {
-  flex: 0 0 75px; /* Увеличена ширина для текста */
+  flex: 0 0 80px; /* Фиксированная ширина для клавиатуры */
   background: #333;
   border-right: 2px solid #555;
   height: 100%;
-  overflow: hidden;
+  overflow-y: auto; /* Вертикальная прокрутка для пианино */
+  overflow-x: hidden;
   position: relative;
 }
 
@@ -216,6 +218,21 @@
 .key.target .key-label,
 .key.target-exercise .key-label {
   color: #fff;
+}
+
+/* Стили для отключённых клавиш (вне диапазона) */
+.key.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background-color: #e0e0e0 !important;
+}
+
+.key.disabled.black {
+  background-color: #555 !important;
+}
+
+.key.disabled .key-label {
+  color: #999;
 }
 
 /* =================================== */

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <base href="/mari-vocal-school/" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Тренажер: Пульсация</title>
+    <link rel="stylesheet" href="style.css?v=18" />
+    <link rel="stylesheet" href="tuner.css?v=18" />
+    <!-- ИЗМЕНЕНИЕ: Добавлены стили для исправления прокрутки -->
+    <style>
+      .piano-viewport,
+      .canvas-viewport {
+        overflow: hidden !important;
+      }
+    </style>
+  </head>
+  <body class="page-trainer">
+    <div class="header-with-back">
+      <a href="trainer_menu.html" class="back-button">‹ Назад</a>
+      <h2 id="trainer-title">Пульсация и удержание</h2>
+    </div>
+
+    <div class="app-container-tuner">
+      <div id="loading-indicator" style="display: none">Загрузка звуков...</div>
+
+      <div class="output-display">
+        <div class="note-display">
+          <span id="note">--</span><span id="octave"></span>
+        </div>
+        <div class="details-display">
+          <div id="cents">Отклонение: --- cents</div>
+          <div class="tuner-container">
+            <div class="tuner-bar"><div id="tuner-indicator"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="trainer-info-area">
+        <p id="trainer-instructions">Выберите стартовую ноту на пианино</p>
+        <p id="trainer-progress"></p>
+      </div>
+
+      <div class="main-content" id="main-content">
+        <div class="piano-viewport">
+          <div id="piano-container" class="piano-vertical"></div>
+        </div>
+        <div class="canvas-viewport">
+          <canvas id="pitch-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="pulsationStartButton" class="pacer-button start" disabled>
+          Начать
+        </button>
+        <button id="pulsationLimitButton" class="pacer-button stop hidden">
+          Предел
+        </button>
+      </div>
+    </div>
+
+    <!-- Модальное окно для результатов -->
+    <div id="results-modal" class="modal-backdrop hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Результаты упражнения</h2>
+        </div>
+        <div id="results-content" class="stats-list">
+          <!-- Результаты будут вставлены сюда -->
+        </div>
+        <div class="results-actions">
+          <button id="restart-button" class="pacer-button start">
+            Попробовать еще раз
+          </button>
+          <button id="back-to-menu-button" class="pacer-button stop">
+            Вернуться в меню
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/data_service.js"></script>
+    <script src="js/achievements_engine.js"></script>
+    <script src="js/piano_sound_service.js"></script>
+    <script src="js/pulsation_trainer.js?v=18"></script>
+    <script>
+      window.TimeTracker.init();
+    </script>
+  </body>
+</html>

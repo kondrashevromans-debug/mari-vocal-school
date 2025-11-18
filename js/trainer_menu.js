@@ -13,48 +13,19 @@ document.addEventListener("DOMContentLoaded", () => {
     { label: "1.0 сек", value: 1.0 },
     { label: "1.5 сек", value: 1.5 },
   ];
-  const octaveTargets = [
-    { label: "C2", targetNum: 24 },
-    { label: "C3", targetNum: 36 },
-    { label: "C4", targetNum: 48 },
-  ];
-
-  // Вспомогательная функция для получения номера ноты
-  function noteToNoteNum(note) {
-    const noteNameOnly = note.replace(/[0-9]/g, "");
-    const octave = parseInt(note.slice(-1));
-    const noteIndex = [
-      "C",
-      "C#",
-      "D",
-      "D#",
-      "E",
-      "F",
-      "F#",
-      "G",
-      "G#",
-      "A",
-      "A#",
-      "B",
-    ].indexOf(noteNameOnly);
-    if (noteIndex === -1) return null;
-    return 12 * octave + noteIndex;
-  }
 
   // --- ОСНОВНАЯ ЛОГИКА ---
-  // Асинхронная функция для загрузки и построения меню
   async function buildTrainerMenu() {
     try {
-      const response = await fetch("data/trainers/trainers_index.json");
+      const response = await fetch(
+        "/mari-vocal-school/data/trainers/trainers_index.json"
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const trainersList = await response.json();
 
-      // Очищаем контейнер на случай повторного вызова
       container.innerHTML = "";
-
-      // Создаем карточки для каждого тренажера из списка
       trainersList.forEach((trainer) => {
         createTrainerCard(trainer);
       });
@@ -65,80 +36,77 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Функция создания одной карточки
   function createTrainerCard(trainer) {
-    // Начальные индексы для настроек
-    let difficultyIndex = 1; // "норма"
-    let durationIndex = 1; // "1.0 сек"
-    let octaveIndex = 1; // "C3"
-
-    // Рассчитываем возможные сдвиги по высоте
-    const baseNoteNum = noteToNoteNum(trainer.baseNote);
-    const octaveSettings = octaveTargets.map((target) => ({
-      label: target.label,
-      value: target.targetNum - baseNoteNum, // сдвиг в полутонах
-    }));
-
+    let difficultyIndex = 1,
+      durationIndex = 1;
     const card = document.createElement("div");
     card.className = "trainer-card";
-
     const title = document.createElement("h3");
     title.className = "trainer-card-title";
     title.textContent = trainer.title;
-
+    const description = document.createElement("p");
+    description.className = "trainer-card-description";
+    description.textContent = trainer.description;
     const startLink = document.createElement("a");
     startLink.className = "start-trainer-button";
     startLink.textContent = "Начать";
 
-    // Функция для обновления URL в кнопке "Начать"
     function updateLink() {
       const difficultyValue = difficultySettings[difficultyIndex].value;
-      const shiftValue = octaveSettings[octaveIndex].value;
       const holdValue = durationSettings[durationIndex].value;
-      // Используем ID из объекта trainer для формирования ссылки
-      startLink.href = `trainer.html?exercise=${trainer.id}&difficulty=${difficultyValue}&shift=${shiftValue}&hold=${holdValue}`;
+
+      // --- ИЗМЕНЕНИЕ: Логика формирования ссылки ---
+      const baseUrl = trainer.url || "trainer.html";
+      const params = new URLSearchParams();
+
+      if (trainer.settings.includes("difficulty")) {
+        params.set("difficulty", difficultyValue);
+      }
+      if (trainer.settings.includes("duration") && !trainer.url) {
+        params.set("hold", holdValue);
+      }
+      if (!trainer.url) {
+        params.set("exercise", trainer.id);
+      }
+
+      startLink.href = `${baseUrl}?${params.toString()}`;
     }
 
-    // Создаем элементы управления
-    const difficultyControl = createControl(
-      "Точность",
-      difficultySettings,
-      difficultyIndex,
-      (newIndex) => {
-        difficultyIndex = newIndex;
-        updateLink();
-      }
-    );
-    const octaveControl = createControl(
-      "Высота",
-      octaveSettings,
-      octaveIndex,
-      (newIndex) => {
-        octaveIndex = newIndex;
-        updateLink();
-      }
-    );
-    const durationControl = createControl(
-      "Длительность",
-      durationSettings,
-      durationIndex,
-      (newIndex) => {
-        durationIndex = newIndex;
-        updateLink();
-      }
-    );
-
     card.appendChild(title);
-    card.appendChild(difficultyControl);
-    card.appendChild(octaveControl);
-    card.appendChild(durationControl);
-    card.appendChild(startLink);
+    card.appendChild(description);
 
+    // --- ИЗМЕНЕНИЕ: Условное добавление контролов ---
+    if (trainer.settings.includes("difficulty")) {
+      const difficultyControl = createControl(
+        "Точность",
+        difficultySettings,
+        difficultyIndex,
+        (i) => {
+          difficultyIndex = i;
+          updateLink();
+        }
+      );
+      card.appendChild(difficultyControl);
+    }
+
+    if (trainer.settings.includes("duration")) {
+      const durationControl = createControl(
+        "Длительность",
+        durationSettings,
+        durationIndex,
+        (i) => {
+          durationIndex = i;
+          updateLink();
+        }
+      );
+      card.appendChild(durationControl);
+    }
+
+    card.appendChild(startLink);
     container.appendChild(card);
-    updateLink(); // Первичная установка ссылки
+    updateLink();
   }
 
-  // Универсальная функция для создания переключателей << спан >>
   function createControl(labelText, settings, initialIndex, callback) {
     let currentIndex = initialIndex;
     const controlWrapper = document.createElement("div");
@@ -157,12 +125,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function updateDisplay() {
       display.textContent = settings[currentIndex].label;
-      // Блокируем кнопки, если достигнут край
       downBtn.disabled = currentIndex === 0;
       upBtn.disabled = currentIndex === settings.length - 1;
       callback(currentIndex);
     }
-
     downBtn.addEventListener("click", () => {
       if (currentIndex > 0) {
         currentIndex--;
@@ -181,11 +147,9 @@ document.addEventListener("DOMContentLoaded", () => {
     selector.appendChild(upBtn);
     controlWrapper.appendChild(label);
     controlWrapper.appendChild(selector);
-
-    updateDisplay(); // Первичная отрисовка значения
+    updateDisplay();
     return controlWrapper;
   }
 
-  // Запускаем процесс построения меню
   buildTrainerMenu();
 });

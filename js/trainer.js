@@ -1,3 +1,5 @@
+// --- START OF FILE js/trainer.js ---
+
 document.addEventListener("DOMContentLoaded", () => {
   // --- DOM-элементы ---
   const startButton = document.getElementById("trainerStartButton"),
@@ -16,7 +18,8 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsModal = document.getElementById("results-modal"),
     resultsContent = document.getElementById("results-content"),
     restartButton = document.getElementById("restart-button"),
-    backToMenuButton = document.getElementById("back-to-menu-button");
+    backToMenuButton = document.getElementById("back-to-menu-button"),
+    loadingIndicator = document.getElementById("loading-indicator");
 
   // --- Константы ---
   const noteStrings = [
@@ -42,12 +45,12 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     A4 = 440,
     C0 = A4 * Math.pow(2, -4.75),
-    MIN_NOTE_NUM = 24,
+    MIN_NOTE_NUM = 12,
     MAX_NOTE_NUM = 84,
     WHITE_KEY_PIXELS = 50,
     PITCH_HISTORY_SIZE = 400;
 
-  // --- Переменные состояния приложения ---
+  // --- Переменные состояния ---
   let audioContext,
     analyser,
     sourceNode,
@@ -58,24 +61,28 @@ document.addEventListener("DOMContentLoaded", () => {
     scrollOffsetPixels = 0,
     targetScrollOffset = 0,
     maxScrollOffset = 0,
-    referenceOscillator = null,
     ignoreFramesCounter = 0,
     lastFramePitch = null;
 
-  // --- Переменные движка тренажера ---
+  // --- Переменные движка ---
   let exerciseId = null,
     octaveShift = 0,
     holdDuration = 1.0,
     difficulty = "normal";
   let centTolerance = 35;
   let currentExercise = null,
+    originalExercise = null, // сохраняем исходное упражнение до выбора стартовой ноты
     currentNoteIndex = -1,
     state = "IDLE",
     noteStartTime = 0,
-    allNoteScores = [];
-  let noteResetTimeout = null;
+    allNoteScores = [],
+    noteResetTimeout = null,
+    selectedStartNote = null; // отслеживаем выбранную стартовую ноту
 
   async function init() {
+    startButton.disabled = true;
+    loadingIndicator.style.display = "flex";
+
     const urlParams = new URLSearchParams(window.location.search);
     exerciseId = urlParams.get("exercise");
     octaveShift = parseInt(urlParams.get("shift") || "0");
@@ -83,7 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
     difficulty = urlParams.get("difficulty") || "normal";
 
     if (!exerciseId) {
-      startButton.disabled = true;
+      loadingIndicator.textContent = "Ошибка: не указано упражнение.";
       return;
     }
 
@@ -102,26 +109,49 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const response = await fetch(
-        `/mari-vocal-school/data/trainers/${exerciseId}.json`
-      );
-      if (!response.ok) {
-        throw new Error(
-          `Не удалось загрузить файл упражнения: ${response.statusText}`
+      // Определяем локальную функцию для загрузки данных упражнения
+      const fetchExercise = async () => {
+        const response = await fetch(
+          `/mari-vocal-school/data/trainers/${exerciseId}.json`
         );
-      }
-      const originalExercise = await response.json();
-      currentExercise = applyOctaveShift(originalExercise, octaveShift);
+        if (!response.ok) {
+          throw new Error(
+            `Не удалось загрузить файл упражнения: ${response.statusText}`
+          );
+        }
+        return response.json();
+      };
+
+      // Параллельно загружаем звуки и данные упражнения
+      const [_, loadedExercise] = await Promise.all([
+        pianoSoundService.initialize(),
+        fetchExercise(),
+      ]);
+
+      // Сохраняем оригинальное упражнение для последующей обработки при выборе стартовой ноты
+      originalExercise = loadedExercise;
+      // Временно применяем сдвиг, чтобы отобразить инструкцию с правильным заголовком
+      currentExercise = applyOctaveShift(loadedExercise, octaveShift);
       trainerTitleElement.textContent = currentExercise.title;
-      setupUI();
-      resetExercise();
-      mainLoop();
+
+      // Показываем инструкцию о выборе стартовой ноты вместо названия упражнения
+      instructionsElement.textContent =
+        "Кликните по ноте на пианино, с которой хотите начать упражнение";
+      progressElement.textContent = "";
+
+      // Используем setTimeout для гарантии что DOM полностью готов
+      setTimeout(() => {
+        setupUI();
+        resetExercise();
+        mainLoop();
+        loadingIndicator.style.display = "none";
+      }, 50);
     } catch (error) {
       console.error("Ошибка при загрузке данных упражнения:", error);
-      startButton.disabled = true;
+      loadingIndicator.textContent = "Ошибка загрузки упражнения!";
       mainContent.innerHTML = `<div class="error-container">
           <h2>Ошибка загрузки</h2>
-          <p>Не удалось загрузить данные для тренажера. Пожалуйста, проверьте консоль для получения дополнительной информации и попробуйте вернуться в меню.</p>
+          <p>Не удалось загрузить данные для тренажера. Пожалуйста, попробуйте вернуться в меню.</p>
           <a href="trainer_menu.html" class="button-link">Вернуться в меню</a>
         </div>`;
     }
@@ -138,7 +168,6 @@ document.addEventListener("DOMContentLoaded", () => {
       pianoContainer.style.transform = `translateY(-${scrollOffsetPixels}px)`;
       canvas.style.transform = `translateY(-${scrollOffsetPixels}px)`;
     }
-
     if (isListening) {
       analyser.getFloatTimeDomainData(dataArray);
       let rms = 0;
@@ -154,7 +183,6 @@ document.addEventListener("DOMContentLoaded", () => {
           pitchInfo = frequencyToNoteDetails(pitch);
         }
       }
-
       if (lastFramePitch === null && currentPitch !== null) {
         ignoreFramesCounter = 10;
       }
@@ -164,15 +192,12 @@ document.addEventListener("DOMContentLoaded", () => {
         pitchInfo = null;
         ignoreFramesCounter--;
       }
-
       updatePitchDisplay(pitchInfo);
-
       const isNoteCorrect =
         pitchInfo &&
         pitchInfo.noteNum ===
           noteToNoteNum(currentExercise.notes[currentNoteIndex].noteName) &&
         Math.abs(pitchInfo.cents) <= centTolerance;
-
       if (state === "LISTENING") {
         if (isNoteCorrect) {
           if (noteResetTimeout) {
@@ -198,16 +223,13 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
       }
-
       pitchHistory.push(pitchToProcess);
       if (pitchHistory.length > PITCH_HISTORY_SIZE) pitchHistory.shift();
       lastFramePitch = currentPitch;
     }
-
     drawPitchGraph();
     requestAnimationFrame(mainLoop);
   }
-
   function resetExercise() {
     state = "IDLE";
     currentNoteIndex = -1;
@@ -215,36 +237,57 @@ document.addEventListener("DOMContentLoaded", () => {
     if (noteResetTimeout) clearTimeout(noteResetTimeout);
     noteResetTimeout = null;
     noteStartTime = 0;
-
+    selectedStartNote = null; // Сбрасываем выбранную ноту
+    currentExercise = applyOctaveShift(originalExercise, octaveShift); // Восстанавливаем исходное упражнение без сдвига
     updateUI();
-    startButton.textContent = "Начать упражнение";
-    startButton.disabled = false;
-    stopButton.classList.add("hidden");
-    resultsModal.classList.add("hidden");
-  }
 
+    // Очищаем выделение клавиши
+    document
+      .querySelectorAll(".key.target")
+      .forEach((k) => k.classList.remove("target"));
+
+    // Возвращаем инструкцию о выборе ноты
+    instructionsElement.textContent =
+      "Кликните по ноте на пианино, с которой хотите начать упражнение";
+    progressElement.textContent = "";
+
+    startButton.textContent = "Начать упражнение";
+    startButton.disabled = true; // Блокируем кнопку, пока не выбрана нота
+    stopButton.classList.add("hidden");
+
+    // Сбрасываем прокрутку
+    scrollOffsetPixels = 0;
+    targetScrollOffset = 0;
+    const pianoViewport = document.querySelector(".piano-viewport");
+    if (pianoViewport) {
+      pianoViewport.scrollTop = 0;
+    }
+  }
   function startExercise() {
     if (state !== "IDLE") return;
+
+    // Проверяем, была ли выбрана стартовая нота
+    if (!selectedStartNote) {
+      instructionsElement.textContent =
+        "Пожалуйста, сначала выберите ноту на пианино";
+      return;
+    }
+
     initAudioContext();
     if (!isListening) startListening();
-
     allNoteScores = [];
     currentNoteIndex = 0;
     state = "LISTENING";
-
     updateUI();
     playReferenceNote();
-
     startButton.textContent = "Упражнение идет...";
     startButton.disabled = true;
     stopButton.classList.remove("hidden");
   }
-
   function goToNextNote() {
     state = "FEEDBACK";
     instructionsElement.textContent = "Отлично!";
     noteStartTime = 0;
-
     setTimeout(() => {
       currentNoteIndex++;
       if (currentNoteIndex >= currentExercise.notes.length) {
@@ -256,37 +299,23 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }, 1000);
   }
-
   function finishExercise() {
     state = "FINISHED";
     stopListening();
     updateUI();
-
     const results = calculateResults();
-
-    // 1. Первое использование
     localStorage.setItem("trainer_first_use", new Date().toISOString());
-
-    // 2. Точность (используем новую, правильную точность)
-    if (results.accuracy >= 80) {
+    if (results.accuracy >= 80)
       localStorage.setItem("trainer_accuracy_80", new Date().toISOString());
-    }
-    if (results.accuracy >= 95) {
+    if (results.accuracy >= 95)
       localStorage.setItem("trainer_accuracy_95", new Date().toISOString());
-    }
-    if (results.accuracy >= 100) {
+    if (results.accuracy >= 100)
       localStorage.setItem("trainer_accuracy_100", new Date().toISOString());
-    }
-
-    // 3. Сложность
-    if (difficulty === "hard") {
+    if (difficulty === "hard")
       localStorage.setItem(
         "trainer_hard_mode_completed",
         new Date().toISOString()
       );
-    }
-
-    // 4. Все упражнения
     try {
       let completedSet = new Set(
         JSON.parse(localStorage.getItem("trainerCompletedExercises")) || []
@@ -299,70 +328,46 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       console.error("Ошибка сохранения прогресса тренажера:", e);
     }
-
     AchievementsEngine.checkAndUnlock();
-
     showResults(results);
     startButton.textContent = "Начать заново";
     startButton.disabled = false;
     stopButton.classList.add("hidden");
   }
-
   function calculateResults() {
-    if (allNoteScores.length === 0) {
+    if (allNoteScores.length === 0)
       return {
         completion: 0,
         avgCents: 0,
         accuracy: 0,
         worstNote: { note: "--", deviation: 0 },
       };
-    }
-
-    let totalCents = 0;
-    let worstNote = { note: "--", deviation: -1 };
-
+    let totalCents = 0,
+      worstNote = { note: "--", deviation: -1 };
     allNoteScores.forEach((score) => {
       const deviation = Math.abs(score.cents);
       totalCents += deviation;
-      if (deviation > worstNote.deviation) {
+      if (deviation > worstNote.deviation)
         worstNote = { note: score.note, deviation: deviation };
-      }
     });
-
     const avgCents = totalCents / allNoteScores.length;
     const completion =
       (allNoteScores.length / currentExercise.notes.length) * 100;
-
-    // Новая формула точности
     const accuracy = Math.max(0, (1 - avgCents / centTolerance) * 100);
-
     return { completion, avgCents, accuracy, worstNote };
   }
-
   function showResults(results) {
-    resultsContent.innerHTML = `
-      <div class="stat-item">
-        <span class="stat-label">Точность интонирования</span>
-        <span class="stat-value">${results.accuracy.toFixed(0)}%</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">Среднее отклонение</span>
-        <span class="stat-value">±${results.avgCents.toFixed(1)} cents</span>
-      </div>
-       <div class="stat-item">
-        <span class="stat-label">Завершено нот</span>
-        <span class="stat-value">${results.completion.toFixed(0)}%</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">Самая сложная нота</span>
-        <span class="stat-value">${
-          results.worstNote.note
-        } (±${results.worstNote.deviation.toFixed(0)} cents)</span>
-      </div>`;
-
+    resultsContent.innerHTML = `<div class="stat-item"><span class="stat-label">Точность интонирования</span><span class="stat-value">${results.accuracy.toFixed(
+      0
+    )}%</span></div><div class="stat-item"><span class="stat-label">Среднее отклонение</span><span class="stat-value">±${results.avgCents.toFixed(
+      1
+    )} cents</span></div><div class="stat-item"><span class="stat-label">Завершено нот</span><span class="stat-value">${results.completion.toFixed(
+      0
+    )}%</span></div><div class="stat-item"><span class="stat-label">Самая сложная нота</span><span class="stat-value">${
+      results.worstNote.note
+    } (±${results.worstNote.deviation.toFixed(0)} cents)</span></div>`;
     resultsModal.classList.remove("hidden");
   }
-
   function updateUI() {
     highlightTargetKey(null);
     if (state === "IDLE") {
@@ -381,7 +386,6 @@ document.addEventListener("DOMContentLoaded", () => {
       progressElement.textContent = `Упражнение завершено`;
     }
   }
-
   function updatePitchDisplay(pitchInfo) {
     if (pitchInfo) {
       noteElement.textContent = pitchInfo.note;
@@ -397,7 +401,6 @@ document.addEventListener("DOMContentLoaded", () => {
       updateTuner(null);
     }
   }
-
   function highlightTargetKey(noteName) {
     document
       .querySelectorAll(".key.target-exercise")
@@ -408,7 +411,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (key) key.classList.add("target-exercise");
     }
   }
-
   function updateTuner(cents) {
     if (cents === null) {
       tunerIndicator.style.opacity = "0";
@@ -419,12 +421,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const percentage = 50 + clampedCents;
     tunerIndicator.style.left = `${percentage}%`;
   }
-
   function drawPitchGraph() {
     const width = canvas.width,
       height = canvas.height;
     canvasCtx.clearRect(0, 0, width, height);
-
     const totalWhiteKeys = Array.from(
       { length: MAX_NOTE_NUM - MIN_NOTE_NUM + 1 },
       (_, i) => i + MIN_NOTE_NUM
@@ -438,29 +438,32 @@ document.addEventListener("DOMContentLoaded", () => {
       canvasCtx.lineTo(width, y);
       canvasCtx.stroke();
     }
-
+    // Подсвечиваем выбранную стартовую ноту (при выборе ноты в режиме IDLE)
+    if (state === "IDLE" && selectedStartNote) {
+      const keyElementId = "key-" + selectedStartNote.replace("#", "s");
+      const keyElement = document.getElementById(keyElementId);
+      if (keyElement) {
+        const keyTop = keyElement.offsetTop;
+        const keyHeight = keyElement.offsetHeight;
+        canvasCtx.fillStyle = "rgba(0, 123, 255, 0.3)";
+        canvasCtx.fillRect(0, keyTop, width, keyHeight);
+      }
+    }
     if (
       (state === "LISTENING" || state === "FEEDBACK") &&
       currentExercise &&
       currentNoteIndex >= 0
     ) {
-      const targetNoteNum = noteToNoteNum(
-        currentExercise.notes[currentNoteIndex].noteName
-      );
-      if (targetNoteNum !== null) {
-        const yCenter = noteNumToY(targetNoteNum);
-        const toleranceInSemitones = centTolerance / 100;
-        const toleranceHeight = (WHITE_KEY_PIXELS / 2) * toleranceInSemitones;
+      const targetNoteName = currentExercise.notes[currentNoteIndex].noteName;
+      const keyElementId = "key-" + targetNoteName.replace("#", "s");
+      const keyElement = document.getElementById(keyElementId);
+      if (keyElement) {
+        const keyTop = keyElement.offsetTop;
+        const keyHeight = keyElement.offsetHeight;
         canvasCtx.fillStyle = "rgba(40, 167, 69, 0.25)";
-        canvasCtx.fillRect(
-          0,
-          yCenter - toleranceHeight,
-          width,
-          toleranceHeight * 2
-        );
+        canvasCtx.fillRect(0, keyTop, width, keyHeight);
       }
     }
-
     canvasCtx.strokeStyle = "#ffc107";
     canvasCtx.lineWidth = 2;
     canvasCtx.beginPath();
@@ -483,7 +486,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     canvasCtx.stroke();
   }
-
   function applyOctaveShift(exercise, shift) {
     if (shift === 0) return JSON.parse(JSON.stringify(exercise));
     const newEx = JSON.parse(JSON.stringify(exercise));
@@ -496,7 +498,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     return newEx;
   }
-
   function noteToNoteNum(note) {
     const name = note.replace(/[0-9]/g, "");
     const oct = parseInt(note.slice(-1));
@@ -504,7 +505,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (index === -1) return null;
     return 12 * oct + index;
   }
-
   function frequencyToNoteDetails(freq) {
     const num = 12 * Math.log2(freq / C0);
     const roundNum = Math.round(num);
@@ -513,6 +513,104 @@ document.addEventListener("DOMContentLoaded", () => {
     const idealFreq = C0 * Math.pow(2, roundNum / 12);
     const cents = 1200 * Math.log2(freq / idealFreq);
     return { note, octave: oct, cents, noteNum: roundNum };
+  }
+
+  /**
+   * Проверяет, приведёт ли выбор стартовой ноты к выходу ноты упражнения за диапазон.
+   * Возвращает true, если все ноты упражнения будут в диапазоне [MIN_NOTE_NUM, MAX_NOTE_NUM].
+   */
+  function isStartNoteValid(startNoteNum, exercise) {
+    if (!exercise || !exercise.notes || exercise.notes.length === 0) {
+      return true; // Если нет нот в упражнении, ничего не проверяем
+    }
+    const firstNoteNum = noteToNoteNum(exercise.notes[0].noteName);
+    if (firstNoteNum === null) return false;
+
+    const semitoneShift = startNoteNum - firstNoteNum;
+
+    // Проверяем каждую ноту упражнения после сдвига
+    for (const note of exercise.notes) {
+      const noteNum = noteToNoteNum(note.noteName);
+      if (noteNum === null) return false;
+      const shiftedNoteNum = noteNum + semitoneShift;
+      if (shiftedNoteNum < MIN_NOTE_NUM || shiftedNoteNum > MAX_NOTE_NUM) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Отключает (добавляет класс .disabled) клавиши, которые приведут к выходу за диапазон.
+   */
+  function updateDisabledKeys(exercise) {
+    // Удаляем предыдущие отключения
+    document.querySelectorAll(".key.disabled").forEach((k) => {
+      k.classList.remove("disabled");
+    });
+
+    // Проверяем каждую возможную стартовую ноту в диапазоне пианино
+    for (let i = MIN_NOTE_NUM; i <= MAX_NOTE_NUM; i++) {
+      const noteNum = i;
+      if (!isStartNoteValid(noteNum, exercise)) {
+        // Отключаем эту клавишу
+        const noteName = noteStrings[noteNum % 12];
+        const octave = Math.floor(noteNum / 12);
+        const keyId = `key-${(noteName + octave).replace("#", "s")}`;
+        const keyElement = document.getElementById(keyId);
+        if (keyElement) {
+          keyElement.classList.add("disabled");
+        }
+      }
+    }
+  }
+
+  /**
+   * Обработчик клика по клавише пианино для выбора стартовой ноты.
+   */
+  function onKeyClickForStartNote(event) {
+    // Игнорируем клики, если упражнение уже начато
+    if (state !== "IDLE") {
+      return;
+    }
+
+    const key = event.currentTarget;
+    if (key.classList.contains("disabled")) {
+      return; // Игнорируем клики по отключённым клавишам
+    }
+
+    const noteName = key.dataset.note; // e.g. "C4"
+    if (!noteName || !originalExercise) return;
+
+    const startNoteNum = noteToNoteNum(noteName);
+    if (startNoteNum === null) return;
+
+    // Сохраняем выбранную ноту
+    selectedStartNote = noteName;
+
+    // Вычисляем смещение в полутоновах
+    const firstNoteNum = noteToNoteNum(originalExercise.notes[0].noteName);
+    const semitoneShift = startNoteNum - firstNoteNum;
+
+    // Применяем транспозицию
+    currentExercise = applyOctaveShift(originalExercise, semitoneShift);
+
+    // Обновляем инструкцию и заголовок
+    instructionsElement.textContent = `Стартовая нота: ${noteName}. Нажмите "Начать упражнение"`;
+    progressElement.textContent = `Выбранная нота: ${noteName}`;
+
+    // Отмечаем выбранную клавишу
+    document
+      .querySelectorAll(".key.target")
+      .forEach((k) => k.classList.remove("target"));
+    key.classList.add("target");
+
+    // Воспроизводим звук выбранной ноты
+    initAudioContext();
+    pianoSoundService.playSound(noteName);
+
+    // Разблокируем кнопку "Начать"
+    startButton.disabled = false;
   }
 
   const noteNumToY = (num) => {
@@ -527,19 +625,33 @@ document.addEventListener("DOMContentLoaded", () => {
       name === "E" || name === "B" ? WHITE_KEY_PIXELS : WHITE_KEY_PIXELS / 2;
     return yBoundary + semitoneHeight - (num - int) * semitoneHeight;
   };
-
   function setupUI() {
     const totalWhiteKeys = Array.from(
       { length: MAX_NOTE_NUM - MIN_NOTE_NUM + 1 },
       (_, i) => i + MIN_NOTE_NUM
     ).filter((n) => !noteStrings[n % 12].includes("#")).length;
     const totalHeight = totalWhiteKeys * WHITE_KEY_PIXELS;
+
+    // Устанавливаем высоту контейнеров
     pianoContainer.style.height = `${totalHeight}px`;
     canvas.height = totalHeight;
-    if (canvas.parentElement) {
-      canvas.width = canvas.parentElement.clientWidth;
+
+    // Устанавливаем ширину canvas
+    const pianoViewport = document.querySelector(".piano-viewport");
+    if (pianoViewport) {
+      // canvas находится в .canvas-viewport внутри .main-content
+      const canvasViewport = document.querySelector(".canvas-viewport");
+      if (canvasViewport) {
+        canvas.width = canvasViewport.clientWidth;
+      }
     }
-    maxScrollOffset = totalHeight - mainContent.clientHeight;
+
+    // maxScrollOffset используется для transform-based scrolling
+    maxScrollOffset = Math.max(
+      0,
+      totalHeight - (pianoViewport?.clientHeight || 500)
+    );
+
     pianoContainer.innerHTML = "";
     let currentY = 0;
     for (let i = MAX_NOTE_NUM; i >= MIN_NOTE_NUM; i--) {
@@ -549,6 +661,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const key = document.createElement("div");
       key.className = `key ${isBlack ? "black" : "white"}`;
       key.id = `key-${(noteName + oct).replace("#", "s")}`;
+      key.dataset.note = `${noteName}${oct}`; // Сохраняем ноту для обработчика клика
       const label = document.createElement("span");
       label.className = "key-label";
       if (!isBlack) {
@@ -564,10 +677,16 @@ document.addEventListener("DOMContentLoaded", () => {
         label.innerHTML = `${noteName}<br>${sharpToFlat[noteName]}`;
         key.appendChild(label);
       }
+      // Добавляем обработчик клика для выбора стартовой ноты (если мы в режиме выбора)
+      key.addEventListener("click", onKeyClickForStartNote);
       pianoContainer.appendChild(key);
     }
-  }
 
+    // Отключаем клавиши, которые приведут к выходу за диапазон
+    if (originalExercise) {
+      updateDisabledKeys(originalExercise);
+    }
+  }
   function scrollToNote(num, immediate = false) {
     if (num === null) return;
     const whiteKeysAbove = Array.from(
@@ -580,7 +699,6 @@ document.addEventListener("DOMContentLoaded", () => {
       scrollOffsetPixels = targetScrollOffset;
     }
   }
-
   function initAudioContext() {
     if (!audioContext) {
       try {
@@ -594,7 +712,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (audioContext.state === "suspended") audioContext.resume();
   }
-
   async function startListening() {
     if (isListening || !audioContext) return;
     try {
@@ -610,7 +727,6 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Microphone access error:", err);
     }
   }
-
   function stopListening() {
     if (!isListening || !sourceNode) return;
     sourceNode.mediaStream.getTracks().forEach((track) => track.stop());
@@ -618,52 +734,14 @@ document.addEventListener("DOMContentLoaded", () => {
     sourceNode = null;
     isListening = false;
   }
-
-  function playReferenceNote() {
-    if (!audioContext) return;
-    stopReferenceTone();
-    const freq =
-      C0 *
-      Math.pow(
-        2,
-        noteToNoteNum(currentExercise.notes[currentNoteIndex].noteName) / 12
-      );
-    if (!freq) return;
-
-    const osc = audioContext.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-
-    const gain = audioContext.createGain();
-    gain.gain.setValueAtTime(0, audioContext.currentTime);
-    gain.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
-    gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.7);
-
-    osc.connect(gain);
-    gain.connect(audioContext.destination);
-
-    osc.start();
-    osc.stop(audioContext.currentTime + 0.8);
-    referenceOscillator = osc;
-  }
-
-  function stopReferenceTone() {
-    if (referenceOscillator) {
-      try {
-        referenceOscillator.stop();
-      } catch (e) {}
-      referenceOscillator = null;
-    }
-  }
-
   function yin(buffer, sampleRate) {
-    const threshold = 0.12;
-    const bufferSize = buffer.length;
-    const yinBufferSize = bufferSize / 2;
-    const yinBuffer = new Float32Array(yinBufferSize);
-    let tauEstimate = -1;
-    let pitchInHz = -1;
-    let runningSum = 0;
+    const threshold = 0.12,
+      bufferSize = buffer.length,
+      yinBufferSize = bufferSize / 2,
+      yinBuffer = new Float32Array(yinBufferSize);
+    let tauEstimate = -1,
+      pitchInHz = -1,
+      runningSum = 0;
     yinBuffer[0] = 1;
     for (let tau = 1; tau < yinBufferSize; tau++) {
       let differenceSum = 0;
@@ -695,10 +773,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     if (tauEstimate > 0 && tauEstimate < yinBufferSize - 1) {
-      const y1 = yinBuffer[tauEstimate - 1];
-      const y2 = yinBuffer[tauEstimate];
-      const y3 = yinBuffer[tauEstimate + 1];
-      const denominator = 2 * (2 * y2 - y3 - y1);
+      const y1 = yinBuffer[tauEstimate - 1],
+        y2 = yinBuffer[tauEstimate],
+        y3 = yinBuffer[tauEstimate + 1],
+        denominator = 2 * (2 * y2 - y3 - y1);
       if (denominator !== 0) {
         const betterTau = tauEstimate + (y3 - y1) / denominator;
         pitchInHz = sampleRate / betterTau;
@@ -709,14 +787,20 @@ document.addEventListener("DOMContentLoaded", () => {
     return pitchInHz > 50 && pitchInHz < 3000 ? pitchInHz : -1;
   }
 
+  function playReferenceNote() {
+    const noteName = currentExercise.notes[currentNoteIndex].noteName;
+    if (noteName) {
+      pianoSoundService.playSound(noteName);
+    }
+  }
+
   startButton.addEventListener("click", startExercise);
   stopButton.addEventListener("click", () => {
-    if (isListening) {
-      stopListening();
-    }
+    if (isListening) stopListening();
     resetExercise();
   });
   restartButton.addEventListener("click", () => {
+    resultsModal.classList.add("hidden");
     resetExercise();
     startExercise();
   });
@@ -724,5 +808,48 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = "trainer_menu.html";
   });
 
+  // Синхронизируем прокрутку пианино и графика
+  const pianoViewport = document.querySelector(".piano-viewport");
+  let isManuallyScrolling = false;
+  let lastTouchY = 0;
+  let manualScrollTimeout = null;
+
+  function startManualScroll() {
+    isManuallyScrolling = true;
+    clearTimeout(manualScrollTimeout);
+  }
+
+  function endManualScroll() {
+    manualScrollTimeout = setTimeout(() => {
+      isManuallyScrolling = false;
+    }, 2000);
+  }
+
+  if (mainContent) {
+    mainContent.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      startManualScroll();
+      targetScrollOffset += e.deltaY;
+      endManualScroll();
+    });
+
+    mainContent.addEventListener("touchstart", (e) => {
+      startManualScroll();
+      lastTouchY = e.touches[0].clientY;
+    });
+
+    mainContent.addEventListener("touchmove", (e) => {
+      const currentY = e.touches[0].clientY;
+      const deltaY = lastTouchY - currentY;
+      targetScrollOffset += deltaY;
+      lastTouchY = currentY;
+    });
+
+    window.addEventListener("touchend", () => {
+      endManualScroll();
+    });
+  }
+
   init();
 });
+// --- END OF FILE js/trainer.js ---

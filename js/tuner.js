@@ -1,3 +1,5 @@
+// --- START OF FILE js/tuner.js ---
+
 document.addEventListener("DOMContentLoaded", () => {
   let userId = null;
   let userProgress = {};
@@ -53,6 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const allTimeBestIntonationStat = document.getElementById(
     "all-time-best-intonation-stat"
   );
+  const loadingIndicator = document.getElementById("loading-indicator"); // Новый элемент
 
   let audioContext;
   let analyser;
@@ -63,8 +66,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const PITCH_HISTORY_SIZE = 400;
   const SMOOTHING_WINDOW_SIZE = 5;
   let pitchHistory = [];
-  const MIN_NOTE_NUM = 24;
-  const MAX_NOTE_NUM = 72;
+  // Диапазон: с 1-й октавы по C7 (в папке есть только C7 из 7-й октавы)
+  // octave 1 -> notes 12..23, C7 -> note 84
+  const MIN_NOTE_NUM = 12; // C1
+  const MAX_NOTE_NUM = 84; // C7 (включительно)
   const NUM_NOTES_DISPLAYED = MAX_NOTE_NUM - MIN_NOTE_NUM + 1;
   const WHITE_KEY_PIXELS = 50;
   let scrollOffsetPixels = 0;
@@ -101,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastFramePitch = null;
   let isFrozen = false;
   let referenceOscillator = null;
-  let dummyGainNode;
+  let dummyGainNode; // Остается для глушения микрофона
   let successfulSingTimeStart = 0;
   let currentStreak = 0;
   let lastSaveTime = 0;
@@ -613,8 +618,12 @@ document.addEventListener("DOMContentLoaded", () => {
     targetNoteDisplay.textContent = `Цель: ${targetNote}`;
     referenceToneButton.classList.remove("hidden");
     isManuallyScrolling = false;
-    const freq = noteToFrequency(targetNote);
-    if (freq) playNote(freq, 1.5);
+
+    // --- ИЗМЕНЕНИЕ ---
+    // Старый код синтезатора удален. Вызываем новый сервис.
+    pianoSoundService.playSound(newTargetNote);
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
     const noteNum = noteToNoteNum(targetNote);
     if (noteNum) scrollToNote(noteNum, true);
     if (!isListening) startListening();
@@ -820,22 +829,10 @@ document.addEventListener("DOMContentLoaded", () => {
     return pitchInHz > 50 && pitchInHz < 3000 ? pitchInHz : -1;
   }
 
-  function playNote(frequency, duration) {
-    if (!audioContext) return;
-    const oscillator = audioContext.createOscillator();
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-    const gainNode = audioContext.createGain();
-    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(
-      0.001,
-      audioContext.currentTime + duration
-    );
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + duration);
-  }
+  // --- УДАЛЕНИЕ ---
+  // Функция playNote полностью удалена, так как ее функционал
+  // теперь находится в pianoSoundService.
+  // --- КОНЕЦ УДАЛЕНИЯ ---
 
   function noteToFrequency(note) {
     const noteNum = noteToNoteNum(note);
@@ -875,10 +872,37 @@ document.addEventListener("DOMContentLoaded", () => {
   octaveUpBtn.addEventListener("click", () => jumpOctave(-1));
   octaveDownBtn.addEventListener("click", () => jumpOctave(1));
 
-  initializeSessionStats();
-  loadProgress();
-  setTimeout(setupUI, 50);
-  window.addEventListener("resize", setupUI);
-  resetDisplay();
-  mainLoop();
+  // --- ИНИЦИАЛИЗАЦИЯ СЕРВИСА ---
+  function initializeApp() {
+    initializeSessionStats();
+    loadProgress();
+    setTimeout(setupUI, 50);
+    window.addEventListener("resize", setupUI);
+    resetDisplay();
+    mainLoop();
+
+    // Показываем индикатор и блокируем пианино
+    loadingIndicator.style.display = "flex";
+    pianoContainer.style.pointerEvents = "none";
+
+    pianoSoundService
+      .initialize()
+      .then(() => {
+        // Скрываем индикатор и разблокируем пианино после загрузки приоритетных семплов
+        loadingIndicator.style.display = "none";
+        pianoContainer.style.pointerEvents = "auto";
+        console.log("Приложение готово к работе. Основные звуки загружены.");
+      })
+      .catch((err) => {
+        console.error(
+          "Критическая ошибка при загрузке звуков. Функционал может быть ограничен.",
+          err
+        );
+        loadingIndicator.textContent = "Ошибка загрузки звуков";
+        // Пианино останется заблокированным
+      });
+  }
+
+  initializeApp();
 });
+// --- END OF FILE js/tuner.js ---
