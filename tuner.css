@@ -23,27 +23,10 @@
 .canvas-viewport {
   flex-grow: 1;
   height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   position: relative;
 }
-/* Для Firefox */
-.piano-viewport,
-.canvas-viewport {
-  scrollbar-width: none;
-}
 
-/* Для Internet Explorer и Edge */
-.piano-viewport,
-.canvas-viewport {
-  -ms-overflow-style: none;
-}
-
-/* Для Chrome, Safari и других WebKit-браузеров */
-.piano-viewport::-webkit-scrollbar,
-.canvas-viewport::-webkit-scrollbar {
-  display: none;
-}
 #piano-container,
 #pitch-canvas {
   position: absolute;
@@ -59,15 +42,17 @@
 
 .output-display {
   text-align: center;
-  padding: 10px;
+  padding: 0.625rem; /* 10px */
+  /* THEME: Используем переменные TG */
   background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
   flex-shrink: 0;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--tg-theme-hint-color, #333);
   transition: background-color 0.3s;
 }
 
 .note-display {
-  font-size: 36px;
+  /* RESPONSIVE: Плавный размер шрифта */
+  font-size: clamp(2rem, 10vw, 2.75rem); /* от 32px до 44px */
   font-weight: bold;
   line-height: 1;
   display: flex;
@@ -77,24 +62,24 @@
 }
 
 #octave {
-  font-size: 18px;
+  font-size: 1.125rem; /* 18px */
   vertical-align: super;
 }
 
 .details-display {
-  font-size: 12px;
+  font-size: 0.75rem; /* 12px */
   color: var(--tg-theme-hint-color, #888);
 }
 
 #target-note-display {
-  font-size: 14px;
+  font-size: 0.875rem; /* 14px */
   font-weight: bold;
   color: var(--tg-theme-text-color, #fff);
-  height: 18px;
-  margin-bottom: 4px;
+  height: 1.125rem; /* 18px */
+  margin-bottom: 0.25rem; /* 4px */
 }
 
-/* Состояния дисплея */
+/* Состояния дисплея (семантические цвета) */
 .output-display.correct {
   background-color: #28a745;
 }
@@ -110,28 +95,28 @@
 /* =================================== */
 
 .tuner-container {
-  margin-top: 8px;
-  height: 10px;
+  margin-top: 0.5rem; /* 8px */
+  height: 0.625rem; /* 10px */
   display: flex;
   justify-content: center;
 }
 
 .tuner-bar {
   width: 80%;
-  max-width: 250px;
+  max-width: 15.625rem; /* 250px */
   height: 100%;
-  background-color: #333;
-  border-radius: 5px;
+  background-color: var(--tg-theme-bg-color, #333);
+  border-radius: 0.3125rem; /* 5px */
   position: relative;
   overflow: hidden;
-  border: 1px solid #555;
+  border: 1px solid var(--tg-theme-hint-color, #555);
 }
 
 #tuner-indicator {
   position: absolute;
   top: 0;
   left: 50%;
-  width: 4px;
+  width: 0.25rem; /* 4px */
   height: 100%;
   background-color: #ffc107;
   transform: translateX(-50%);
@@ -155,12 +140,11 @@
 /* =================================== */
 
 .piano-viewport {
-  flex: 0 0 80px; /* Фиксированная ширина для клавиатуры */
-  background: #333;
-  border-right: 2px solid #555;
+  flex: 0 0 4.7rem; /* ~75px */
+  background: var(--tg-theme-bg-color, #333);
+  border-right: 2px solid var(--tg-theme-hint-color, #555);
   height: 100%;
-  overflow-y: auto; /* Вертикальная прокрутка для пианино */
-  overflow-x: hidden;
+  overflow: hidden;
   position: relative;
 }
 
@@ -172,21 +156,20 @@
 }
 
 .key.white {
-  background-color: #fff;
+  background-color: #fff; /* Семантический цвет */
   z-index: 1;
 }
 
 .key.black {
-  background-color: #333;
-  width: 53.33%; /* Скомпенсирована ширина, чтобы остаться ~30px */
+  background-color: #333; /* Семантический цвет */
+  width: 53.33%;
   z-index: 2;
 }
 
 .key:active {
-  background-color: #ffc107;
+  background-color: #ffc107; /* Семантический цвет */
 }
 
-/* Стили для подписей к клавишам (ЕДИНЫЙ БЛОК) */
 .key-label {
   position: absolute;
   left: 0;
@@ -197,16 +180,16 @@
 }
 
 .key.white .key-label {
-  bottom: 6px;
-  font-size: 14px;
+  bottom: 0.375rem; /* 6px */
+  font-size: 0.875rem; /* 14px */
   color: #555;
   text-align: right;
-  padding-right: 8px; /* Текст сдвинут в видимую зону */
+  padding-right: 0.5rem; /* 8px */
 }
 
 .key.black .key-label {
-  bottom: 3px;
-  font-size: 10px;
+  bottom: 0.1875rem; /* 3px */
+  font-size: 0.625rem; /* 10px */
   line-height: 1.2;
   color: #fff;
 }
@@ -218,7 +201,8 @@
 }
 
 .key.target.black {
-  background-color: #0056b3;
+  /* THEME: Затемняем основной цвет кнопки, чтобы он оставался различимым */
+  filter: brightness(0.7);
 }
 
 .key.target-exercise {
@@ -230,25 +214,9 @@
   background-color: #218838;
 }
 
-/* Текст на целевых клавишах должен быть белым */
 .key.target .key-label,
 .key.target-exercise .key-label {
-  color: #fff;
-}
-
-/* Стили для отключённых клавиш (вне диапазона) */
-.key.disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  background-color: #e0e0e0 !important;
-}
-
-.key.disabled.black {
-  background-color: #555 !important;
-}
-
-.key.disabled .key-label {
-  color: #999;
+  color: var(--tg-theme-button-text-color, #fff);
 }
 
 /* =================================== */
@@ -257,14 +225,13 @@
 
 .controls {
   display: flex;
-  /* --- ИЗМЕНЕНИЕ: Кнопки теперь по центру --- */
   justify-content: center;
   align-items: center;
-  gap: 12px; /* Увеличим отступ между кнопками */
-  padding: 10px 15px calc(40px + env(safe-area-inset-bottom)); /* Безопасная зона */
+  gap: 0.75rem; /* 12px */
+  padding: 0.625rem 1rem calc(1rem + env(safe-area-inset-bottom)); /* 10px 15px + safe area */
   background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
   flex-shrink: 0;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--tg-theme-hint-color, #333);
 }
 
 .main-controls {
@@ -275,22 +242,23 @@
 #startButton,
 #holdButton {
   width: 40%;
-  max-width: 130px;
-  padding: 10px;
-  font-size: 16px;
+  max-width: 8.125rem; /* 130px */
+  padding: 0.625rem; /* 10px */
+  font-size: 1rem; /* 16px */
   border: none;
-  border-radius: 8px;
+  border-radius: 0.5rem; /* 8px */
   color: var(--tg-theme-button-text-color, #fff);
   background-color: var(--tg-theme-button-color, #007bff);
-  margin: 0 5px;
+  margin: 0 0.3125rem; /* 5px */
 }
 
 #startButton.listening {
-  background-color: #dc3545;
+  /* THEME: Используем "опасный" цвет из палитры TG */
+  background-color: var(--tg-theme-destructive-text-color, #dc3545);
 }
 
 #holdButton {
-  background-color: #6c757d;
+  background-color: #6c757d; /* Нейтральный серый */
 }
 
 #holdButton.active {
@@ -301,12 +269,12 @@
 .octave-btn,
 .icon-btn {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  font-size: 20px;
-  border: 1px solid #555;
+  width: 2.5rem; /* 40px */
+  height: 2.5rem; /* 40px */
+  font-size: 1.25rem; /* 20px */
+  border: 1px solid var(--tg-theme-hint-color, #555);
   border-radius: 50%;
-  background-color: #333;
+  background-color: var(--tg-theme-bg-color, #333);
   color: var(--tg-theme-text-color, #fff);
   cursor: pointer;
   display: flex;
@@ -316,12 +284,12 @@
 
 .octave-btn:active,
 .icon-btn:active {
-  background-color: #555;
+  background-color: var(--tg-theme-hint-color, #555);
 }
 
 #status-message {
-  font-size: 11px;
-  margin: 5px 0 0;
+  font-size: 0.6875rem; /* 11px */
+  margin: 0.3125rem 0 0; /* 5px */
   color: var(--tg-theme-hint-color, #888);
 }
 
@@ -334,7 +302,7 @@
   border: none;
   color: var(--tg-theme-hint-color, #888);
   cursor: pointer;
-  padding: 0 5px;
+  padding: 0 0.3125rem; /* 5px */
   position: absolute;
   right: 15%;
   top: 50%;
@@ -358,22 +326,22 @@
 /* =================================== */
 
 #progress-area {
-  margin-top: 10px;
+  margin-top: 0.625rem; /* 10px */
   padding: 0 10%;
 }
 
 .level-info {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
-  margin-bottom: 4px;
+  font-size: 0.625rem; /* 10px */
+  margin-bottom: 0.25rem; /* 4px */
   color: var(--tg-theme-hint-color, #aaa);
 }
 
 .progress-bar-container {
-  height: 6px;
-  background-color: #333;
-  border-radius: 3px;
+  height: 0.375rem; /* 6px */
+  background-color: var(--tg-theme-bg-color, #333);
+  border-radius: 0.1875rem; /* 3px */
   overflow: hidden;
 }
 
@@ -400,10 +368,10 @@
 
 .modal-content {
   background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
-  padding: 20px;
-  border-radius: 12px;
+  padding: 1.25rem; /* 20px */
+  border-radius: 0.75rem; /* 12px */
   width: 90%;
-  max-width: 400px;
+  max-width: 25rem; /* 400px */
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
 }
 
@@ -411,35 +379,35 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
-  border-bottom: 1px solid #444;
-  padding-bottom: 10px;
+  margin-bottom: 1rem; /* 15px */
+  border-bottom: 1px solid var(--tg-theme-hint-color, #444);
+  padding-bottom: 0.625rem; /* 10px */
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 1.125rem; /* 18px */
 }
 
 .close-btn {
   background: none;
   border: none;
-  color: #fff;
-  font-size: 24px;
+  color: var(--tg-theme-text-color, #fff);
+  font-size: 1.5rem; /* 24px */
   cursor: pointer;
 }
 
 .stats-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.75rem; /* 12px */
 }
 
 .stat-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 14px;
+  font-size: 0.875rem; /* 14px */
 }
 
 .stat-label {
@@ -451,12 +419,12 @@
 }
 
 .stats-header {
-  font-size: 16px;
+  font-size: 1rem; /* 16px */
   font-weight: bold;
   color: var(--tg-theme-text-color, #fff);
-  margin: 15px 0 10px 0;
-  padding-bottom: 5px;
-  border-bottom: 1px solid #444;
+  margin: 1rem 0 0.625rem 0;
+  padding-bottom: 0.3125rem; /* 5px */
+  border-bottom: 1px solid var(--tg-theme-hint-color, #444);
 }
 
 .stats-header:first-of-type {
@@ -468,32 +436,31 @@
 /* =================================== */
 
 #trainer-info-area {
-  padding: 5px 10px;
-  min-height: 40px;
+  padding: 0.3125rem 0.625rem; /* 5px 10px */
+  min-height: 2.5rem; /* 40px */
   text-align: center;
 }
 
 #trainer-instructions {
-  font-size: 16px;
+  font-size: 1rem; /* 16px */
   font-weight: 500;
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem; /* 4px */
 }
 
 #trainer-progress {
-  font-size: 12px;
+  font-size: 0.75rem; /* 12px */
   color: var(--tg-theme-hint-color, #aaa);
 }
 
 .controls #trainerStartButton,
 .controls #trainerStopButton {
-  /* Общие стили для обеих кнопок */
-  padding: 12px;
-  font-size: 18px;
+  padding: 0.75rem; /* 12px */
+  font-size: 1.125rem; /* 18px */
   border: none;
-  border-radius: 8px;
+  border-radius: 0.5rem; /* 8px */
   color: var(--tg-theme-button-text-color, #fff);
-  flex-grow: 1; /* Кнопки будут растягиваться */
-  max-width: 260px; /* Но не слишком сильно */
+  flex-grow: 1;
+  max-width: 16.25rem; /* 260px */
 }
 
 .controls #trainerStartButton {
@@ -501,25 +468,24 @@
 }
 
 .controls #trainerStartButton:disabled {
-  background-color: #555;
-  color: #aaa;
+  background-color: var(--tg-theme-hint-color, #555);
+  color: var(--tg-theme-text-color, #aaa);
+  opacity: 0.7;
   cursor: not-allowed;
-  flex-grow: 0; /* Чтобы не растягивалась в выключенном состоянии */
-  width: 200px;
+  flex-grow: 0;
+  width: 12.5rem; /* 200px */
 }
 
-/* НОВЫЙ СТИЛЬ для кнопки "Остановить" */
 .controls #trainerStopButton {
-  background-color: #6c757d; /* Серый цвет для вторичного действия */
-  max-width: 140px;
+  background-color: #6c757d; /* Нейтральный серый */
+  max-width: 8.75rem; /* 140px */
 }
 
-/* Модальное окно результатов тренажера */
 .results-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 0.625rem; /* 10px */
+  margin-top: 1.25rem; /* 20px */
 }
 
 #restart-button {
@@ -530,4 +496,30 @@
 #back-to-menu-button {
   background-color: #6c757d;
   color: var(--tg-theme-button-text-color, #fff);
+}
+
+/* RESPONSIVE: Медиа-запрос для очень узких экранов */
+@media (max-width: 360px) {
+  .controls {
+    gap: 0.5rem; /* 8px */
+    padding: 0.5rem 0.625rem calc(0.625rem + env(safe-area-inset-bottom)); /* 8px 10px */
+  }
+  #startButton,
+  #holdButton {
+    font-size: 0.875rem; /* 14px */
+    padding: 0.5rem;
+  }
+  .octave-btn,
+  .icon-btn {
+    width: 2.25rem; /* 36px */
+    height: 2.25rem; /* 36px */
+    font-size: 1.125rem; /* 18px */
+  }
+  .note-display {
+    font-size: clamp(
+      1.75rem,
+      9vw,
+      2rem
+    ); /* Уменьшаем шрифт на маленьких экранах */
+  }
 }
