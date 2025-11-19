@@ -27,7 +27,23 @@
   overflow-x: hidden;
   position: relative;
 }
+/* Для Firefox */
+.piano-viewport,
+.canvas-viewport {
+  scrollbar-width: none;
+}
 
+/* Для Internet Explorer и Edge */
+.piano-viewport,
+.canvas-viewport {
+  -ms-overflow-style: none;
+}
+
+/* Для Chrome, Safari и других WebKit-браузеров */
+.piano-viewport::-webkit-scrollbar,
+.canvas-viewport::-webkit-scrollbar {
+  display: none;
+}
 #piano-container,
 #pitch-canvas {
   position: absolute;

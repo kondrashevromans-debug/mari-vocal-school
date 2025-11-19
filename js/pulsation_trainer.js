@@ -37,6 +37,13 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
   const A4 = 440,
     C0 = A4 * Math.pow(2, -4.75);
+  const sharpToFlat = {
+    "C#": "Db",
+    "D#": "Eb",
+    "F#": "Gb",
+    "G#": "Ab",
+    "A#": "Bb",
+  };
   const MIN_NOTE_NUM = 12,
     MAX_NOTE_NUM = 84;
   const WHITE_KEY_PIXELS = 50,
