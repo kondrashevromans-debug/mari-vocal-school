@@ -329,6 +329,8 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(setupUI, 50);
       return;
     }
+    // Блокируем прокрутку всей страницы при wheel/touch
+    mainContent.style.overflow = "hidden";
     const totalWhiteKeys = Array.from(
       { length: NUM_NOTES_DISPLAYED },
       (_, i) => i + MIN_NOTE_NUM
