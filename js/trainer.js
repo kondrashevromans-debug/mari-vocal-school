@@ -174,8 +174,6 @@ document.addEventListener("DOMContentLoaded", () => {
     stopButton.classList.add("hidden");
     scrollOffsetPixels = 0;
     targetScrollOffset = 0;
-    const pianoViewport = document.querySelector(".piano-viewport");
-    if (pianoViewport) pianoViewport.scrollTop = 0;
   }
   function startExercise() {
     if (state !== "IDLE") return;
@@ -506,10 +504,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const canvasViewport = document.querySelector(".canvas-viewport");
       if (canvasViewport) canvas.width = canvasViewport.clientWidth;
     }
-    maxScrollOffset = Math.max(
-      0,
-      totalHeight - (pianoViewport?.clientHeight || 500)
-    );
+    maxScrollOffset = totalHeight - mainContent.clientHeight;
     pianoContainer.innerHTML = "";
     let currentY = 0;
     for (let i = MAX_NOTE_NUM; i >= MIN_NOTE_NUM; i--) {
@@ -541,14 +536,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (originalExercise) updateDisabledKeys(originalExercise);
   }
   function scrollToNote(num, immediate = false) {
-    if (num === null) return;
+    if (num === null || isManuallyScrolling) return;
+    const int = Math.floor(num);
     const whiteKeysAbove = Array.from(
-      { length: MAX_NOTE_NUM - num },
-      (_, i) => i + num + 1
+      { length: MAX_NOTE_NUM - int },
+      (_, i) => i + int + 1
     ).filter((n) => !noteStrings[n % 12].includes("#")).length;
-    const yPos = whiteKeysAbove * WHITE_KEY_PIXELS + WHITE_KEY_PIXELS / 2;
+    const name = noteStrings[int % 12];
+    const semitoneHeight =
+      name === "E" || name === "B" ? WHITE_KEY_PIXELS : WHITE_KEY_PIXELS / 2;
+    const yPos =
+      whiteKeysAbove * WHITE_KEY_PIXELS +
+      semitoneHeight -
+      (num - int) * semitoneHeight;
     targetScrollOffset = yPos - mainContent.clientHeight / 2;
-    if (immediate) scrollOffsetPixels = targetScrollOffset;
+    targetScrollOffset = Math.max(
+      0,
+      Math.min(targetScrollOffset, maxScrollOffset)
+    );
+    if (immediate) {
+      scrollOffsetPixels = targetScrollOffset;
+      pianoContainer.style.transform = `translateY(-${scrollOffsetPixels}px)`;
+      canvas.style.transform = `translateY(-${scrollOffsetPixels}px)`;
+    }
   }
   function initAudioContext() {
     if (!audioContext) {
@@ -673,27 +683,48 @@ document.addEventListener("DOMContentLoaded", () => {
       isManuallyScrolling = false;
     }, 2000);
   }
-  if (mainContent) {
-    mainContent.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      startManualScroll();
-      targetScrollOffset += e.deltaY;
-      endManualScroll();
-    });
-    mainContent.addEventListener("touchstart", (e) => {
+  function startManualScroll() {
+    isManuallyScrolling = true;
+    clearTimeout(manualScrollTimeout);
+  }
+  function endManualScroll() {
+    manualScrollTimeout = setTimeout(() => {
+      isManuallyScrolling = false;
+    }, 2000);
+  }
+  mainContent.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    startManualScroll();
+    targetScrollOffset += e.deltaY;
+    targetScrollOffset = Math.max(
+      0,
+      Math.min(targetScrollOffset, maxScrollOffset)
+    );
+    endManualScroll();
+  });
+  mainContent.addEventListener(
+    "touchstart",
+    (e) => {
       startManualScroll();
       lastTouchY = e.touches[0].clientY;
-    });
-    mainContent.addEventListener("touchmove", (e) => {
-      const currentY = e.touches[0].clientY;
-      const deltaY = lastTouchY - currentY;
+    },
+    { passive: false }
+  );
+  mainContent.addEventListener(
+    "touchmove",
+    (e) => {
+      e.preventDefault();
+      const deltaY = lastTouchY - e.touches[0].clientY;
+      lastTouchY = e.touches[0].clientY;
       targetScrollOffset += deltaY;
-      lastTouchY = currentY;
-    });
-    window.addEventListener("touchend", () => {
-      endManualScroll();
-    });
-  }
+      targetScrollOffset = Math.max(
+        0,
+        Math.min(targetScrollOffset, maxScrollOffset)
+      );
+    },
+    { passive: false }
+  );
+  mainContent.addEventListener("touchend", endManualScroll);
 
   async function startAudioLoadingProcess() {
     initAudioContext();
