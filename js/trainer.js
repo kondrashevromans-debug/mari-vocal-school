@@ -534,6 +534,8 @@ document.addEventListener("DOMContentLoaded", () => {
       pianoContainer.appendChild(key);
     }
     if (originalExercise) updateDisabledKeys(originalExercise);
+    // Центруем клавиатуру на C4 (noteNum=48), чтобы сразу были видны октавы 3 и 4
+    scrollToNote(48, true);
   }
   function scrollToNote(num, immediate = false) {
     if (num === null || isManuallyScrolling) return;

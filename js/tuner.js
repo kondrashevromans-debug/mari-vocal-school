@@ -604,8 +604,7 @@ document.addEventListener("DOMContentLoaded", () => {
       pianoSoundService.playSound(newTargetNote);
     }
 
-    const noteNum = noteToNoteNum(targetNote);
-    if (noteNum) scrollToNote(noteNum, true);
+    // В тюнере больше не скроллим к ноте при клике по клавише, чтобы не было резкого перемещения
     if (!isListening) startListening();
   }
 

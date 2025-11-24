@@ -408,6 +408,7 @@ document.addEventListener("DOMContentLoaded", () => {
       key.addEventListener("click", handleKeyClick);
       pianoContainer.appendChild(key);
     }
+    // Центруем клавиатуру на C4 (noteNum=48), чтобы сразу были видны октавы 3 и 4
     scrollToNote(48, true);
   }
   const noteNumToY = (num) => {
