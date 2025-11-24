@@ -65,10 +65,68 @@
         </div>
       </div>
     </div>
-
+    <!-- Приветственный попап -->
+    <div
+      id="welcome-popup"
+      style="
+        display: flex;
+        position: fixed;
+        z-index: 10000;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.7);
+        align-items: center;
+        justify-content: center;
+      "
+    >
+      <div
+        style="
+          background: #222;
+          padding: 32px 24px 24px 24px;
+          border-radius: 16px;
+          box-shadow: 0 4px 32px #0007;
+          max-width: 90vw;
+          width: 340px;
+          text-align: center;
+          color: #fff;
+        "
+      >
+        <div style="font-size: 1.3em; margin-bottom: 18px">
+          Добро пожаловать.<br />Хорошего дня!<br />Готов заниматься голосом?
+        </div>
+        <button
+          id="welcome-ready-btn"
+          style="
+            margin-top: 18px;
+            padding: 10px 32px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            border: none;
+            background: #ffc107;
+            color: #222;
+            cursor: pointer;
+          "
+        >
+          Готов
+        </button>
+      </div>
+    </div>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("/mari-vocal-school/sw.js")
+          .then((reg) => console.log("Service Worker зарегистрирован!", reg))
+          .catch((err) =>
+            console.error("Ошибка регистрации Service Worker:", err)
+          );
+      }
+    </script>
     <script src="js/utils.js"></script>
     <script src="js/data_service.js"></script>
     <script src="js/achievements_engine.js"></script>
+    <script src="js/piano_sound_service.js"></script>
     <script src="js/index.js"></script>
 
     <div id="achievement-toast">

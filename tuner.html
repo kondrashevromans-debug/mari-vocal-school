@@ -18,10 +18,7 @@
       }
     </style>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>
-      eruda.init();
-    </script>
+
     <style>
       .piano-viewport,
       .canvas-viewport {
@@ -54,7 +51,9 @@
     </div>
     <div class="app-container-tuner">
       <!-- ИНДИКАТОР ЗАГРУЗКИ -->
-      <div id="loading-indicator">Загрузка звуков пианино...</div>
+      <div id="loading-indicator" style="display: none">
+        Загрузка звуков пианино...
+      </div>
 
       <div class="output-display">
         <div class="note-display">

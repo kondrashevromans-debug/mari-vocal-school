@@ -124,8 +124,17 @@ const pianoSoundService = (() => {
     }
   };
 
+  /**
+   * Проверяет, есть ли хотя бы один загруженный аудиосемпл в кэше
+   * @returns {boolean}
+   */
+  const isAnySampleLoaded = () => {
+    return Object.keys(sounds).length > 0;
+  };
+
   return {
     initialize,
     playSound,
+    isAnySampleLoaded,
   };
 })();

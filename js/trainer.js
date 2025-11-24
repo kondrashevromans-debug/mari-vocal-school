@@ -777,16 +777,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ПРОВЕРЯЕМ ФЛАГ ПРЕДЗАГРУЗКИ
-    if (sessionStorage.getItem("startTrainerPreload") === "true") {
-      sessionStorage.removeItem("startTrainerPreload");
-      console.log(
-        "Найден флаг предзагрузки для тренажера. Запускаю загрузку аудио..."
-      );
-      startAudioLoadingProcess();
-    } else {
-      console.log("Флаг предзагрузки не найден. Ждем действия пользователя.");
-      // Ничего не делаем, индикатор уже скрыт. Загрузка начнется по клику.
-    }
+    // if (sessionStorage.getItem("startTrainerPreload") === "true") {
+    //   sessionStorage.removeItem("startTrainerPreload");
+    //   console.log(
+    //     "Найден флаг предзагрузки для тренажера. Запускаю загрузку аудио..."
+    //   );
+    //   startAudioLoadingProcess();
+    // } else {
+    //   console.log("Флаг предзагрузки не найден. Ждем действия пользователя.");
+    //   // Ничего не делаем, индикатор уже скрыт. Загрузка начнется по клику.
+    // }
   }
 
   init();

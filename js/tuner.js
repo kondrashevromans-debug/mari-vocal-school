@@ -563,6 +563,7 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(mainLoop);
   }
 
+  let allAudioLoaded = false;
   function onKeyClick(event) {
     initAudioContext();
     if (!audioContext) return;
@@ -578,7 +579,30 @@ document.addEventListener("DOMContentLoaded", () => {
     targetNoteDisplay.textContent = `Цель: ${targetNote}`;
     referenceToneButton.classList.remove("hidden");
     isManuallyScrolling = false;
-    pianoSoundService.playSound(newTargetNote);
+
+    // --- Новая логика: при первом клике загружаем все аудио, если кэш пуст ---
+    if (
+      !allAudioLoaded &&
+      pianoSoundService &&
+      typeof pianoSoundService.isAnySampleLoaded === "function" &&
+      !pianoSoundService.isAnySampleLoaded()
+    ) {
+      allAudioLoaded = true;
+      // if (window.loadingIndicator) window.loadingIndicator.style.display = "flex";
+      pianoSoundService
+        .initialize()
+        .then(() => {
+          // if (window.loadingIndicator) window.loadingIndicator.style.display = "none";
+          pianoSoundService.playSound(newTargetNote);
+        })
+        .catch(() => {
+          // if (window.loadingIndicator) window.loadingIndicator.style.display = "none";
+          alert("Ошибка загрузки аудио");
+        });
+    } else {
+      pianoSoundService.playSound(newTargetNote);
+    }
+
     const noteNum = noteToNoteNum(targetNote);
     if (noteNum) scrollToNote(noteNum, true);
     if (!isListening) startListening();
@@ -818,35 +842,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- НОВАЯ УНИВЕРСАЛЬНАЯ ЛОГИКА ИНИЦИАЛИЗАЦИИ ---
 
-  // Эта функция содержит логику ЗАПУСКА загрузки аудио
-  function startAudioLoadingProcess() {
-    // 1. Инициализируем аудиоконтекст (это тоже требует действия пользователя на iOS)
-    initAudioContext();
-    if (!audioContext) {
-      alert("Не удалось запустить аудиосистему. Пожалуйста, обновите браузер.");
-      return;
-    }
-
-    // 2. Показываем индикатор загрузки и блокируем пианино
-    loadingIndicator.style.display = "flex";
-    pianoContainer.style.pointerEvents = "none";
-
-    // 3. Запускаем загрузку звуков
-    pianoSoundService
-      .initialize()
-      .then(() => {
-        loadingIndicator.style.display = "none";
-        pianoContainer.style.pointerEvents = "auto";
-        console.log("Приложение готово к работе. Основные звуки загружены.");
-        statusMessage.textContent =
-          "Выберите ноту на пианино или пойте в микрофон";
-      })
-      .catch((err) => {
-        console.error("Критическая ошибка при загрузке звуков.", err);
-        loadingIndicator.textContent = "Ошибка загрузки звуков";
-      });
-  }
-
   // Эта функция настраивает базовый интерфейс и решает, КАК запускать загрузку
   function initializeApp() {
     initializeSessionStats();
@@ -857,23 +852,26 @@ document.addEventListener("DOMContentLoaded", () => {
     mainLoop();
 
     // ПРОВЕРЯЕМ ФЛАГ ИЗ sessionStorage
-    if (sessionStorage.getItem("startTunerPreload") === "true") {
-      // Флаг есть! Запускаем загрузку НЕМЕДЛЕННО.
-      console.log("Найден флаг предзагрузки. Запускаю загрузку аудио...");
-
-      // Удаляем флаг, чтобы он не сработал снова при обновлении страницы
-      sessionStorage.removeItem("startTunerPreload");
-
-      startAudioLoadingProcess();
-    } else {
-      // Флага нет. Работаем по старой схеме - ждем клика на кнопку "Начать".
-      console.log("Флаг предзагрузки не найден. Ждем действия пользователя.");
-      loadingIndicator.style.display = "none";
-      startButton.addEventListener("click", startAudioLoadingProcess, {
-        once: true,
-      });
-      statusMessage.textContent = "Нажмите 'Начать' для загрузки и калибровки";
-    }
+    // if (sessionStorage.getItem("startTunerPreload") === "true") {
+    //   // Флаг есть! Запускаем загрузку НЕМЕДЛЕННО.
+    //   console.log("Найден флаг предзагрузки. Запускаю загрузку аудио...");
+    //
+    //   // Удаляем флаг, чтобы он не сработал снова при обновлении страницы
+    //   sessionStorage.removeItem("startTunerPreload");
+    //
+    //   // Удаляем вызов загрузки аудио
+    // } else {
+    //   // Флага нет. Работаем по старой схеме - ждем клика на кнопку "Начать".
+    //   console.log("Флаг предзагрузки не найден. Ждем действия пользователя.");
+    //   loadingIndicator.style.display = "none";
+    //   startButton.addEventListener("click", () => {
+    //     // Удаляем вызов загрузки аудио
+    //     pianoSoundService.playSound(targetNote);
+    //   }, {
+    //     once: true,
+    //   });
+    //   statusMessage.textContent = "Нажмите 'Начать' для загрузки и калибровки";
+    // }
   }
 
   // Запускаем инициализацию

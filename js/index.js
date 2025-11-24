@@ -1,35 +1,78 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const welcomeGuideShown = localStorage.getItem("welcomeGuideShown");
-  const tunerLink = document.querySelector('a[href="tuner.html"]');
-  const trainerLink = document.querySelector('a[href="trainer_menu.html"]');
+  // --- Приветственный попап ---
+  const welcomePopup = document.getElementById("welcome-popup");
+  const readyBtn = document.getElementById("welcome-ready-btn");
+  let audioInitialized = false;
 
-  if (tunerLink) {
-    tunerLink.addEventListener("click", () => {
-      console.log(
-        "Пользователь нажал на ссылку тюнера. Устанавливаю флаг предзагрузки."
-      );
+  function isAudioCached() {
+    return (
+      pianoSoundService &&
+      pianoSoundService.isAnySampleLoaded &&
+      pianoSoundService.isAnySampleLoaded()
+    );
+  }
 
-      // Устанавливаем флаг в sessionStorage. Он "живет" только пока открыта вкладка браузера.
-      // Это нужно, чтобы следующая страница (tuner.html) знала, что нужно начать загрузку.
-      sessionStorage.setItem("startTunerPreload", "true");
-    });
+  function startAudioInitIfNeeded() {
+    if (audioInitialized || isAudioCached()) return;
+    if (window.loadingIndicator) window.loadingIndicator.style.display = "flex";
+    pianoSoundService
+      .initialize()
+      .then(() => {
+        audioInitialized = true;
+        if (window.loadingIndicator)
+          window.loadingIndicator.style.display = "none";
+      })
+      .catch((err) => {
+        if (window.loadingIndicator)
+          window.loadingIndicator.textContent = "Ошибка загрузки звуков";
+        alert("Ошибка загрузки аудио");
+      });
   }
-  if (trainerLink) {
-    trainerLink.addEventListener("click", () => {
-      console.log(
-        "Пользователь нажал на ссылку Вокального тренажера. Устанавливаю флаг предзагрузки."
-      );
-      // Используем другой, уникальный ключ для тренажера
-      sessionStorage.setItem("startTrainerPreload", "true");
-    });
-  }
-  // Здесь может быть ваш остальной код для главной страницы, если он есть.
-  // Например, инициализация модальных окон, проверка достижений и т.д.
-  AchievementsEngine.checkAndUnlock(); // Предполагая, что эта функция должна быть здесь
-  if (!welcomeGuideShown) {
-    if (window.openInfoModal) {
-      window.openInfoModal("welcome");
+
+  // Показываем попап только если не было в этой сессии
+  if (welcomePopup && readyBtn) {
+    if (!sessionStorage.getItem("welcomePopupShown")) {
+      welcomePopup.style.display = "flex";
+    } else {
+      welcomePopup.style.display = "none";
     }
-    localStorage.setItem("welcomeGuideShown", "true");
+    readyBtn.addEventListener("click", () => {
+      welcomePopup.style.display = "none";
+      sessionStorage.setItem("welcomePopupShown", "1");
+      startAudioInitIfNeeded();
+    });
   }
+
+  // --- Инициализация аудио при переходе на тренажёры ---
+  // function handleAudioInitAndNavigate(e) {
+  //   if (audioInitialized || isAudioCached()) return;
+  //   e.preventDefault();
+  //   if (window.loadingIndicator) window.loadingIndicator.style.display = "flex";
+  //   pianoSoundService
+  //     .initialize()
+  //     .then(() => {
+  //       audioInitialized = true;
+  //       if (window.loadingIndicator)
+  //         window.loadingIndicator.style.display = "none";
+  //       window.location.href = e.currentTarget.href;
+  //     })
+  //     .catch((err) => {
+  //       if (window.loadingIndicator)
+  //         window.loadingIndicator.textContent = "Ошибка загрузки звуков";
+  //       alert("Ошибка загрузки аудио");
+  //     });
+  // }
+
+  // Кнопка 'Проверка на попадание в ноты'
+  // const tunerBtn = document.querySelector('a[href="tuner.html"]');
+  // if (tunerBtn) {
+  //   tunerBtn.addEventListener("click", handleAudioInitAndNavigate);
+  // }
+  // Кнопка 'Вокальный тренажер'
+  // const trainerBtn = document.querySelector('a[href="trainer_menu.html"]');
+  // if (trainerBtn) {
+  //   trainerBtn.addEventListener("click", handleAudioInitAndNavigate);
+  // }
+
+  AchievementsEngine.checkAndUnlock();
 });
