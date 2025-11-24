@@ -228,7 +228,7 @@
   justify-content: center;
   align-items: center;
   gap: 0.75rem; /* 12px */
-  padding: 0.625rem 1rem calc(1rem + env(safe-area-inset-bottom)); /* 10px 15px + safe area */
+  padding: 0.625rem 1rem calc(2.5rem + env(safe-area-inset-bottom)); /* увеличенный нижний отступ для безопасной зоны */
   background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
   flex-shrink: 0;
   border-top: 1px solid var(--tg-theme-hint-color, #333);
