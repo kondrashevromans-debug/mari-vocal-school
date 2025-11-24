@@ -70,13 +70,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const MAX_NOTE_NUM = 84; // C7
   const NUM_NOTES_DISPLAYED = MAX_NOTE_NUM - MIN_NOTE_NUM + 1;
   const WHITE_KEY_PIXELS = 50;
-  let scrollOffsetPixels = 0;
-  let targetScrollOffset = 0;
-  let maxScrollOffset = 0;
-  let isManuallyScrolling = false;
-  let manualScrollTimeout;
-  let isDragging = false;
-  let lastTouchY = 0;
+  let scrollOffsetPixels = 0,
+    targetScrollOffset = 0,
+    maxScrollOffset = 0;
+  let isManuallyScrolling = false,
+    manualScrollTimeout,
+    lastTouchY = 0;
   const noteStrings = [
     "C",
     "C#",
@@ -449,7 +448,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function mainLoop() {
     let distance = targetScrollOffset - scrollOffsetPixels;
-    if (Math.abs(distance) > 0.1) {
+    if (Math.abs(distance) > 0.01) {
       scrollOffsetPixels += distance * 0.1;
       scrollOffsetPixels = Math.max(
         0,
@@ -702,53 +701,74 @@ document.addEventListener("DOMContentLoaded", () => {
     drawPitchGraph();
   }
 
-  function scrollToNote(noteNum, immediate = false) {
+  function scrollToNote(num, immediate = false) {
+    if (num === null || isManuallyScrolling) return;
+    const int = Math.floor(num);
     const whiteKeysAbove = Array.from(
-      { length: MAX_NOTE_NUM - noteNum },
-      (_, i) => i + noteNum + 1
+      { length: MAX_NOTE_NUM - int },
+      (_, i) => i + int + 1
     ).filter((n) => !noteStrings[n % 12].includes("#")).length;
-    const noteYPosition =
-      whiteKeysAbove * WHITE_KEY_PIXELS + WHITE_KEY_PIXELS / 2;
-    targetScrollOffset = noteYPosition - mainContent.clientHeight / 2;
-    if (immediate) scrollOffsetPixels = targetScrollOffset;
+    const name = noteStrings[int % 12];
+    const semitoneHeight =
+      name === "E" || name === "B" ? WHITE_KEY_PIXELS : WHITE_KEY_PIXELS / 2;
+    const yPos =
+      whiteKeysAbove * WHITE_KEY_PIXELS +
+      semitoneHeight -
+      (num - int) * semitoneHeight;
+    targetScrollOffset = yPos - mainContent.clientHeight / 2;
+    targetScrollOffset = Math.max(
+      0,
+      Math.min(targetScrollOffset, maxScrollOffset)
+    );
+    if (immediate) {
+      scrollOffsetPixels = targetScrollOffset;
+      pianoContainer.style.transform = `translateY(-${scrollOffsetPixels}px)`;
+      canvas.style.transform = `translateY(-${scrollOffsetPixels}px)`;
+    }
   }
 
   function startManualScroll() {
     isManuallyScrolling = true;
     clearTimeout(manualScrollTimeout);
   }
-
   function endManualScroll() {
     manualScrollTimeout = setTimeout(() => {
       isManuallyScrolling = false;
     }, 2000);
   }
-
   mainContent.addEventListener("wheel", (e) => {
     e.preventDefault();
     startManualScroll();
     targetScrollOffset += e.deltaY;
+    targetScrollOffset = Math.max(
+      0,
+      Math.min(targetScrollOffset, maxScrollOffset)
+    );
     endManualScroll();
   });
-
-  mainContent.addEventListener("touchstart", (e) => {
-    startManualScroll();
-    isDragging = true;
-    lastTouchY = e.touches[0].clientY;
-  });
-
-  mainContent.addEventListener("touchmove", (e) => {
-    if (!isDragging) return;
-    const currentY = e.touches[0].clientY;
-    const deltaY = lastTouchY - currentY;
-    targetScrollOffset += deltaY;
-    lastTouchY = currentY;
-  });
-
-  window.addEventListener("touchend", () => {
-    isDragging = false;
-    endManualScroll();
-  });
+  mainContent.addEventListener(
+    "touchstart",
+    (e) => {
+      startManualScroll();
+      lastTouchY = e.touches[0].clientY;
+    },
+    { passive: false }
+  );
+  mainContent.addEventListener(
+    "touchmove",
+    (e) => {
+      e.preventDefault();
+      const deltaY = lastTouchY - e.touches[0].clientY;
+      lastTouchY = e.touches[0].clientY;
+      targetScrollOffset += deltaY;
+      targetScrollOffset = Math.max(
+        0,
+        Math.min(targetScrollOffset, maxScrollOffset)
+      );
+    },
+    { passive: false }
+  );
+  mainContent.addEventListener("touchend", endManualScroll);
 
   function yin(buffer, sampleRate) {
     const threshold = 0.12,
