@@ -1,6 +1,9 @@
-// --- НАЧАЛО КОДА ДЛЯ js/tuner.js ---
+// --- START OF FILE js/tuner.js ---
 
 document.addEventListener("DOMContentLoaded", () => {
+  // --- Инициализация голосового движка ---
+  const voiceEngine = new VoiceEngine();
+
   let userId = null;
   let userProgress = {};
   let sessionStats;
@@ -57,25 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   const loadingIndicator = document.getElementById("loading-indicator");
 
-  let audioContext;
-  let analyser;
-  let sourceNode;
-  let isListening = false;
-  let dataArray;
-  let targetNote = null;
-  const PITCH_HISTORY_SIZE = 400;
-  const SMOOTHING_WINDOW_SIZE = 5;
-  let pitchHistory = [];
-  const MIN_NOTE_NUM = 12; // C1
-  const MAX_NOTE_NUM = 84; // C7
-  const NUM_NOTES_DISPLAYED = MAX_NOTE_NUM - MIN_NOTE_NUM + 1;
-  const WHITE_KEY_PIXELS = 50;
-  let scrollOffsetPixels = 0,
-    targetScrollOffset = 0,
-    maxScrollOffset = 0;
-  let isManuallyScrolling = false,
-    manualScrollTimeout,
-    lastTouchY = 0;
+  // --- Константы ---
   const noteStrings = [
     "C",
     "C#",
@@ -90,8 +75,6 @@ document.addEventListener("DOMContentLoaded", () => {
     "A#",
     "B",
   ];
-  const A4 = 440;
-  const C0 = A4 * Math.pow(2, -4.75);
   const sharpToFlat = {
     "C#": "Db",
     "D#": "Eb",
@@ -99,11 +82,30 @@ document.addEventListener("DOMContentLoaded", () => {
     "G#": "Ab",
     "A#": "Bb",
   };
+  const MIN_NOTE_NUM = 12; // C1
+  const MAX_NOTE_NUM = 84; // C7
+  const NUM_NOTES_DISPLAYED = MAX_NOTE_NUM - MIN_NOTE_NUM + 1;
+  const WHITE_KEY_PIXELS = 50;
+  const PITCH_HISTORY_SIZE = 400;
+
+  // --- Переменные состояния ---
+  let targetNote = null;
+  let pitchHistory = [];
+  let scrollOffsetPixels = 0,
+    targetScrollOffset = 0,
+    maxScrollOffset = 0;
+  let isManuallyScrolling = false,
+    manualScrollTimeout,
+    lastTouchY = 0;
+
+  // --- Переменные для сглаживания (Медианный фильтр) ---
+  const SMOOTHING_WINDOW_SIZE = 5;
+  let pitchBuffer = [];
   let ignoreFramesCounter = 0;
-  let lastFramePitch = null;
+  let previousSmoothedFreq = null;
+
   let isFrozen = false;
   let referenceOscillator = null;
-  let dummyGainNode;
   let successfulSingTimeStart = 0;
   let currentStreak = 0;
   let lastSaveTime = 0;
@@ -186,7 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.setItem("tuner_hold_10s", new Date().toISOString());
     if (userProgress.chromaticNotes.size >= 12)
       localStorage.setItem("tuner_chromatic_12", new Date().toISOString());
-    AchievementsEngine.checkAndUnlock();
+    if (window.AchievementsEngine) AchievementsEngine.checkAndUnlock();
   }
 
   function calculateLevel(xp) {
@@ -274,33 +276,10 @@ document.addEventListener("DOMContentLoaded", () => {
     statsModal.classList.remove("hidden");
   }
 
-  function initAudioContext() {
-    if (!audioContext) {
-      try {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        dummyGainNode = audioContext.createGain();
-        dummyGainNode.gain.value = 0;
-        dummyGainNode.connect(audioContext.destination);
-      } catch (e) {
-        alert("Ваш браузер не поддерживает Web Audio API.");
-      }
-    }
-    if (audioContext && audioContext.state === "suspended") {
-      audioContext.resume();
-    }
-  }
-
   async function startListening() {
-    if (isListening || !navigator.mediaDevices || !audioContext) return;
+    if (voiceEngine.isListening) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      dataArray = new Float32Array(analyser.fftSize);
-      sourceNode = audioContext.createMediaStreamSource(stream);
-      sourceNode.connect(analyser);
-      analyser.connect(dummyGainNode);
-      isListening = true;
+      await voiceEngine.startListening();
       startButton.textContent = "Остановить";
       startButton.classList.add("listening");
       tunerContainer.style.visibility = "visible";
@@ -312,11 +291,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function stopListening() {
-    if (!isListening || !sourceNode) return;
-    sourceNode.mediaStream.getTracks().forEach((track) => track.stop());
-    sourceNode.disconnect();
-    sourceNode = null;
-    isListening = false;
+    if (!voiceEngine.isListening) return;
+    voiceEngine.stopListening();
     startButton.textContent = "Начать";
     startButton.classList.remove("listening");
     resetDisplay();
@@ -329,7 +305,6 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(setupUI, 50);
       return;
     }
-    // Блокируем прокрутку всей страницы при wheel/touch
     mainContent.style.overflow = "hidden";
     const totalWhiteKeys = Array.from(
       { length: NUM_NOTES_DISPLAYED },
@@ -423,17 +398,11 @@ document.addEventListener("DOMContentLoaded", () => {
     canvasCtx.beginPath();
     let lastPointWasNull = true;
     for (let i = 0; i < pitchHistory.length; i++) {
-      const windowStart = Math.max(0, i - SMOOTHING_WINDOW_SIZE + 1);
-      const windowSlice = pitchHistory.slice(windowStart, i + 1);
-      const validPitchesInWindow = windowSlice.filter((p) => p !== null);
-      let medianPitch = null;
-      if (validPitchesInWindow.length > 0) {
-        const sortedWindow = validPitchesInWindow.sort((a, b) => a - b);
-        medianPitch = sortedWindow[Math.floor(sortedWindow.length / 2)];
-      }
+      const pitch = pitchHistory[i];
       const x = (i / PITCH_HISTORY_SIZE) * width;
-      if (medianPitch !== null) {
-        const noteNumFloat = 12 * Math.log2(medianPitch / C0);
+
+      if (pitch && pitch > 0) {
+        const noteNumFloat = 12 * Math.log2(pitch / voiceEngine.C0);
         const y = noteNumToY(noteNumFloat);
         if (lastPointWasNull) {
           canvasCtx.moveTo(x, y);
@@ -449,6 +418,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function mainLoop() {
+    // 1. Скролл
     let distance = targetScrollOffset - scrollOffsetPixels;
     if (Math.abs(distance) > 0.01) {
       scrollOffsetPixels += distance * 0.1;
@@ -459,21 +429,52 @@ document.addEventListener("DOMContentLoaded", () => {
       pianoContainer.style.transform = `translateY(-${scrollOffsetPixels}px)`;
       canvas.style.transform = `translateY(-${scrollOffsetPixels}px)`;
     }
-    if (isListening && !isFrozen) {
-      analyser.getFloatTimeDomainData(dataArray);
-      let rms = 0;
-      for (let i = 0; i < dataArray.length; i++)
-        rms += dataArray[i] * dataArray[i];
-      rms = Math.sqrt(rms / dataArray.length);
-      let currentPitch = null,
+
+    // 2. Обработка звука
+    let currentPitchFreq = null;
+    let pitchInfo = null;
+
+    if (voiceEngine.isListening && !isFrozen) {
+      const rawPitchInfo = voiceEngine.getPitch();
+      let rawFreq = null;
+      if (rawPitchInfo && typeof rawPitchInfo.frequency === "number") {
+        rawFreq = rawPitchInfo.frequency;
+      }
+
+      // --- МЕДИАННЫЙ ФИЛЬТР ---
+      pitchBuffer.push(rawFreq);
+      if (pitchBuffer.length > SMOOTHING_WINDOW_SIZE) {
+        pitchBuffer.shift();
+      }
+
+      const validPitches = pitchBuffer.filter(
+        (p) => typeof p === "number" && p > 0
+      );
+      let smoothedFreq = null;
+
+      if (validPitches.length > SMOOTHING_WINDOW_SIZE / 2) {
+        validPitches.sort((a, b) => a - b);
+        smoothedFreq = validPitches[Math.floor(validPitches.length / 2)];
+      }
+
+      // --- ЗАЩИТА ОТ АТАКИ ---
+      if (previousSmoothedFreq === null && smoothedFreq !== null) {
+        ignoreFramesCounter = 5;
+      }
+      previousSmoothedFreq = smoothedFreq;
+
+      if (ignoreFramesCounter > 0) {
+        currentPitchFreq = null;
         pitchInfo = null;
-      if (rms > 0.025) {
-        const pitch = yin(dataArray, audioContext.sampleRate);
-        if (pitch !== -1) {
-          currentPitch = pitch;
-          pitchInfo = frequencyToNoteDetails(currentPitch);
+        ignoreFramesCounter--;
+      } else {
+        currentPitchFreq = smoothedFreq;
+        if (currentPitchFreq) {
+          pitchInfo = voiceEngine.frequencyToNoteDetails(currentPitchFreq);
         }
       }
+      // -----------------------
+
       if (pitchInfo) {
         noteElement.textContent = pitchInfo.note;
         octaveElement.textContent = pitchInfo.octave;
@@ -481,7 +482,9 @@ document.addEventListener("DOMContentLoaded", () => {
           0
         )} cents`;
         updateTuner(pitchInfo.cents);
+
         if (!isManuallyScrolling) scrollToNote(pitchInfo.noteNum);
+
         if (targetNote) {
           const sungNoteWithOctave = pitchInfo.note + pitchInfo.octave;
           display.classList.remove("correct", "octave-miss", "wrong");
@@ -498,11 +501,14 @@ document.addEventListener("DOMContentLoaded", () => {
         updateTuner(null);
         display.classList.remove("correct", "octave-miss", "wrong");
       }
+
+      // --- Игровая логика (XP, Stats) ---
       let isCorrectNote = false;
       if (pitchInfo && targetNote) {
         if (pitchInfo.note + pitchInfo.octave === targetNote)
           isCorrectNote = true;
       }
+
       if (isCorrectNote) {
         if (successfulSingTimeStart === 0) successfulSingTimeStart = Date.now();
         currentStreak = (Date.now() - successfulSingTimeStart) / 1000;
@@ -545,35 +551,33 @@ document.addEventListener("DOMContentLoaded", () => {
         currentStreak = 0;
         recentCents = [];
       }
+
       if (Date.now() - lastSaveTime > 5000) {
         saveProgress();
         lastSaveTime = Date.now();
       }
-      if (lastFramePitch === null && currentPitch !== null)
-        ignoreFramesCounter = 10;
-      let pitchToGraph = currentPitch;
-      if (ignoreFramesCounter > 0) {
-        pitchToGraph = null;
-        ignoreFramesCounter--;
-      }
-      pitchHistory.push(pitchToGraph);
-      if (pitchHistory.length > PITCH_HISTORY_SIZE) pitchHistory.shift();
-      lastFramePitch = currentPitch;
     }
+
+    // 3. История графика
+    pitchHistory.push(currentPitchFreq);
+    if (pitchHistory.length > PITCH_HISTORY_SIZE) pitchHistory.shift();
+
     drawPitchGraph();
     requestAnimationFrame(mainLoop);
   }
 
   let allAudioLoaded = false;
   function onKeyClick(event) {
-    initAudioContext();
-    if (!audioContext) return;
+    voiceEngine.initAudioContext();
+    if (!voiceEngine.audioContext) return;
+
     const key = event.currentTarget;
     const newTargetNote = key.dataset.note;
     document
       .querySelectorAll(".key.target")
       .forEach((k) => k.classList.remove("target"));
     key.classList.add("target");
+
     if (targetNote !== newTargetNote && referenceOscillator)
       toggleReferenceTone();
     targetNote = newTargetNote;
@@ -581,7 +585,6 @@ document.addEventListener("DOMContentLoaded", () => {
     referenceToneButton.classList.remove("hidden");
     isManuallyScrolling = false;
 
-    // --- Новая логика: при первом клике загружаем все аудио, если кэш пуст ---
     if (
       !allAudioLoaded &&
       pianoSoundService &&
@@ -589,29 +592,26 @@ document.addEventListener("DOMContentLoaded", () => {
       !pianoSoundService.isAnySampleLoaded()
     ) {
       allAudioLoaded = true;
-      // if (window.loadingIndicator) window.loadingIndicator.style.display = "flex";
       pianoSoundService
         .initialize()
         .then(() => {
-          // if (window.loadingIndicator) window.loadingIndicator.style.display = "none";
           pianoSoundService.playSound(newTargetNote);
         })
         .catch(() => {
-          // if (window.loadingIndicator) window.loadingIndicator.style.display = "none";
           alert("Ошибка загрузки аудио");
         });
     } else {
       pianoSoundService.playSound(newTargetNote);
     }
 
-    // В тюнере больше не скроллим к ноте при клике по клавише, чтобы не было резкого перемещения
-    if (!isListening) startListening();
+    if (!voiceEngine.isListening) startListening();
   }
 
   startButton.addEventListener("click", () => {
-    initAudioContext();
-    if (!audioContext) return;
-    if (!isListening) {
+    voiceEngine.initAudioContext();
+    if (!voiceEngine.audioContext) return;
+
+    if (!voiceEngine.isListening) {
       targetNote = null;
       document
         .querySelectorAll(".key.target")
@@ -623,7 +623,7 @@ document.addEventListener("DOMContentLoaded", () => {
       startListening();
       if (!localStorage.getItem("tuner_first_use")) {
         localStorage.setItem("tuner_first_use", new Date().toISOString());
-        AchievementsEngine.checkAndUnlock();
+        if (window.AchievementsEngine) AchievementsEngine.checkAndUnlock();
       }
     } else {
       stopListening();
@@ -638,7 +638,7 @@ document.addEventListener("DOMContentLoaded", () => {
   );
 
   function toggleFreeze() {
-    if (!isListening) return;
+    if (!voiceEngine.isListening) return;
     isFrozen = !isFrozen;
     holdButton.classList.toggle("active", isFrozen);
     holdButton.textContent = isFrozen ? "Продолжить" : "Заморозить";
@@ -656,23 +656,22 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function toggleReferenceTone() {
-    if (!audioContext || !targetNote) return;
+    if (!voiceEngine.audioContext || !targetNote) return;
     if (referenceOscillator) {
       stopReferenceTone();
     } else {
       const frequency = noteToFrequency(targetNote);
       if (!frequency) return;
-      const oscillator = audioContext.createOscillator();
+
+      const ctx = voiceEngine.audioContext;
+      const oscillator = ctx.createOscillator();
       oscillator.type = "sine";
       oscillator.frequency.value = frequency;
-      const gainNode = audioContext.createGain();
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(
-        0.3,
-        audioContext.currentTime + 0.1
-      );
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.1);
       oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      gainNode.connect(ctx.destination);
       oscillator.start();
       referenceOscillator = { oscillator, gainNode };
       referenceToneButton.classList.add("active");
@@ -682,9 +681,10 @@ document.addEventListener("DOMContentLoaded", () => {
   function stopReferenceTone() {
     if (referenceOscillator) {
       const { oscillator, gainNode } = referenceOscillator;
-      gainNode.gain.cancelScheduledValues(audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.1);
-      oscillator.stop(audioContext.currentTime + 0.1);
+      const ctx = voiceEngine.audioContext;
+      gainNode.gain.cancelScheduledValues(ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
+      oscillator.stop(ctx.currentTime + 0.1);
       referenceOscillator = null;
       referenceToneButton.classList.remove("active");
     }
@@ -771,81 +771,10 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   mainContent.addEventListener("touchend", endManualScroll);
 
-  function yin(buffer, sampleRate) {
-    const threshold = 0.12,
-      bufferSize = buffer.length,
-      yinBufferSize = bufferSize / 2;
-    const yinBuffer = new Float32Array(yinBufferSize);
-    let tauEstimate = -1,
-      pitchInHz = -1,
-      runningSum = 0;
-    yinBuffer[0] = 1;
-    for (let tau = 1; tau < yinBufferSize; tau++) {
-      let differenceSum = 0;
-      for (let i = 0; i < yinBufferSize; i++) {
-        const delta = buffer[i] - buffer[i + tau];
-        differenceSum += delta * delta;
-      }
-      runningSum += differenceSum;
-      yinBuffer[tau] = (differenceSum * tau) / (runningSum || 1);
-    }
-    for (let tau = 4; tau < yinBufferSize; tau++) {
-      if (yinBuffer[tau] < threshold) {
-        if (
-          yinBuffer[tau] < yinBuffer[tau - 1] &&
-          yinBuffer[tau] < yinBuffer[tau + 1]
-        ) {
-          tauEstimate = tau;
-          break;
-        }
-      }
-    }
-    if (tauEstimate === -1) {
-      let min = Infinity;
-      for (let tau = 4; tau < yinBufferSize; tau++) {
-        if (yinBuffer[tau] < min) {
-          min = yinBuffer[tau];
-          tauEstimate = tau;
-        }
-      }
-    }
-    if (tauEstimate > 0 && tauEstimate < yinBufferSize - 1) {
-      const y1 = yinBuffer[tauEstimate - 1],
-        y2 = yinBuffer[tauEstimate],
-        y3 = yinBuffer[tauEstimate + 1];
-      const denominator = 2 * (2 * y2 - y3 - y1);
-      if (denominator !== 0) {
-        pitchInHz = sampleRate / (tauEstimate + (y3 - y1) / denominator);
-      } else {
-        pitchInHz = sampleRate / tauEstimate;
-      }
-    }
-    return pitchInHz > 50 && pitchInHz < 3000 ? pitchInHz : -1;
-  }
-
   function noteToFrequency(note) {
-    const noteNum = noteToNoteNum(note);
+    const noteNum = voiceEngine.noteToNoteNum(note);
     if (noteNum === null) return null;
-    return C0 * Math.pow(2, noteNum / 12);
-  }
-
-  function noteToNoteNum(note) {
-    const noteNameOnly = note.replace(/[0-9]/g, "");
-    const octave = parseInt(note.slice(-1));
-    const noteIndex = noteStrings.indexOf(noteNameOnly);
-    if (noteIndex === -1) return null;
-    return 12 * octave + noteIndex;
-  }
-
-  function frequencyToNoteDetails(frequency) {
-    const noteNumFloat = 12 * Math.log2(frequency / C0);
-    const roundedNoteNum = Math.round(noteNumFloat);
-    const noteIndex = roundedNoteNum % 12;
-    const octave = Math.floor(roundedNoteNum / 12);
-    const note = noteStrings[noteIndex];
-    const idealFrequency = C0 * Math.pow(2, roundedNoteNum / 12);
-    const cents = 1200 * Math.log2(frequency / idealFrequency);
-    return { note, octave, cents, noteNum: roundedNoteNum };
+    return voiceEngine.C0 * Math.pow(2, noteNum / 12);
   }
 
   function jumpOctave(direction) {
@@ -861,9 +790,6 @@ document.addEventListener("DOMContentLoaded", () => {
   octaveUpBtn.addEventListener("click", () => jumpOctave(-1));
   octaveDownBtn.addEventListener("click", () => jumpOctave(1));
 
-  // --- НОВАЯ УНИВЕРСАЛЬНАЯ ЛОГИКА ИНИЦИАЛИЗАЦИИ ---
-
-  // Эта функция настраивает базовый интерфейс и решает, КАК запускать загрузку
   function initializeApp() {
     initializeSessionStats();
     loadProgress();
@@ -871,32 +797,8 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("resize", setupUI);
     resetDisplay();
     mainLoop();
-
-    // ПРОВЕРЯЕМ ФЛАГ ИЗ sessionStorage
-    // if (sessionStorage.getItem("startTunerPreload") === "true") {
-    //   // Флаг есть! Запускаем загрузку НЕМЕДЛЕННО.
-    //   console.log("Найден флаг предзагрузки. Запускаю загрузку аудио...");
-    //
-    //   // Удаляем флаг, чтобы он не сработал снова при обновлении страницы
-    //   sessionStorage.removeItem("startTunerPreload");
-    //
-    //   // Удаляем вызов загрузки аудио
-    // } else {
-    //   // Флага нет. Работаем по старой схеме - ждем клика на кнопку "Начать".
-    //   console.log("Флаг предзагрузки не найден. Ждем действия пользователя.");
-    //   loadingIndicator.style.display = "none";
-    //   startButton.addEventListener("click", () => {
-    //     // Удаляем вызов загрузки аудио
-    //     pianoSoundService.playSound(targetNote);
-    //   }, {
-    //     once: true,
-    //   });
-    //   statusMessage.textContent = "Нажмите 'Начать' для загрузки и калибровки";
-    // }
   }
 
-  // Запускаем инициализацию
   initializeApp();
 });
-
-// --- КОНЕЦ КОДА ДЛЯ js/tuner.js ---
+// --- END OF FILE js/tuner.js ---
