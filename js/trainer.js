@@ -536,14 +536,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (originalExercise) updateDisabledKeys(originalExercise);
     // Центруем клавиатуру на C4 (noteNum=48), чтобы сразу были видны октавы 3 и 4
     scrollToNote(48, true);
-    targetScrollOffset = scrollOffsetPixels;
-    // Дополнительно повторяем после полного рендера для гарантии корректного скролла
-    requestAnimationFrame(() => {
-      scrollToNote(48, true);
-      targetScrollOffset = scrollOffsetPixels;
-    });
-    // Синхронизируем targetScrollOffset и scrollOffsetPixels, чтобы избежать скачка при первом скролле
-    targetScrollOffset = scrollOffsetPixels;
   }
   function scrollToNote(num, immediate = false) {
     if (num === null || isManuallyScrolling) return;
@@ -804,11 +796,11 @@ document.addEventListener("DOMContentLoaded", () => {
         "Кликните по ноте на пианино, с которой хотите начать упражнение";
       progressElement.textContent = "";
 
-      requestAnimationFrame(() => {
+      setTimeout(() => {
         setupUI();
         resetExercise();
         mainLoop();
-      });
+      }, 50);
     } catch (error) {
       console.error("Ошибка при загрузке данных упражнения:", error);
       loadingIndicator.style.display = "flex";
