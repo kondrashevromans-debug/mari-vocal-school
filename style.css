@@ -15,6 +15,8 @@ body {
   user-select: none;
   /* RESPONSIVE: Устанавливаем базовый размер шрифта для rem */
   font-size: 16px;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .app-container {
@@ -1331,4 +1333,131 @@ body {
     right: 0.625rem; /* 10px */
     bottom: 0.625rem; /* 10px */
   }
+}
+
+/* --- Экран проверки доступа (адаптирован под Telegram) --- */
+#access-screen {
+  position: fixed;
+  z-index: 99999;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--tg-theme-bg-color, #111);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--tg-theme-text-color, #fff);
+  text-align: center;
+  padding: 0;
+  font-size: 1rem;
+  transition: background 0.3s, color 0.3s;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+#access-loader {
+  font-size: 1.2em;
+  color: var(--tg-theme-hint-color, #aaa);
+  margin-bottom: 1.5rem;
+}
+
+#access-denied {
+  display: none;
+  background: var(--tg-theme-secondary-bg-color, #232323);
+  color: var(--tg-theme-text-color, #fff);
+  border-radius: 1rem;
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.25);
+  margin-top: 1rem;
+  max-width: 28rem;
+  width: 100%;
+  min-width: 0;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+  /* Для мобильных — не шире экрана */
+  max-width: min(28rem, 100vw - 2rem);
+}
+
+.access-icon {
+  font-size: 2.5em;
+  margin-bottom: 1rem;
+  color: var(--tg-theme-button-color, #ffc107);
+}
+
+.access-title {
+  margin-bottom: 0.5rem;
+  font-size: 1.25em;
+  font-weight: 600;
+  color: var(--tg-theme-text-color, #fff);
+}
+
+.access-text {
+  margin-bottom: 1.25rem;
+  color: var(--tg-theme-hint-color, #ccc);
+  font-size: 1em;
+}
+
+.access-button {
+  display: inline-block;
+  padding: 0.75rem 2rem;
+  background: var(--tg-theme-button-color, #ffc107);
+  color: var(--tg-theme-button-text-color, #222);
+  text-decoration: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 1.05em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: none;
+  transition: background 0.2s, color 0.2s, filter 0.2s;
+}
+.access-button:hover {
+  filter: brightness(1.08);
+}
+.access-button:active {
+  filter: brightness(0.95);
+}
+
+/* --- Приветственный попап (Welcome Popup) --- */
+#welcome-popup {
+  display: none; /* Скрыто по умолчанию */
+  position: fixed;
+  z-index: 10000;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  align-items: center;
+  justify-content: center;
+}
+
+.popup-card {
+  background: #222;
+  padding: 32px 24px 24px 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 32px #0007;
+  max-width: 90vw;
+  width: 340px;
+  text-align: center;
+  color: #fff;
+}
+
+.popup-text {
+  font-size: 1.3em;
+  margin-bottom: 18px;
+}
+
+#welcome-ready-btn {
+  margin-top: 18px;
+  padding: 10px 32px;
+  font-size: 1.1em;
+  border-radius: 8px;
+  border: none;
+  background: #ffc107;
+  color: #222;
+  cursor: pointer;
 }

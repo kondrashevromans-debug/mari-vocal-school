@@ -1,78 +1,104 @@
+// --- КОНФИГУРАЦИЯ ---
+// Вставь сюда ссылку на свой Google Script (Web App URL)
+const GOOGLE_SCRIPT_URL = "ВСТАВЬ_СЮДА_СВОЮ_ССЫЛКУ_ОТ_GOOGLE_SCRIPT";
+
 document.addEventListener("DOMContentLoaded", () => {
-  // --- Приветственный попап ---
-  const welcomePopup = document.getElementById("welcome-popup");
-  const readyBtn = document.getElementById("welcome-ready-btn");
-  let audioInitialized = false;
+  const tg = window.Telegram.WebApp;
+  tg.expand(); // Разворачиваем приложение на весь экран
 
-  function isAudioCached() {
-    return (
-      pianoSoundService &&
-      pianoSoundService.isAnySampleLoaded &&
-      pianoSoundService.isAnySampleLoaded()
-    );
-  }
+  const accessScreen = document.getElementById("access-screen");
+  const accessLoader = document.getElementById("access-loader");
+  const accessDenied = document.getElementById("access-denied");
 
-  function startAudioInitIfNeeded() {
-    if (audioInitialized || isAudioCached()) return;
-    if (window.loadingIndicator) window.loadingIndicator.style.display = "flex";
-    pianoSoundService
-      .initialize()
-      .then(() => {
-        audioInitialized = true;
-        if (window.loadingIndicator)
-          window.loadingIndicator.style.display = "none";
-      })
-      .catch((err) => {
-        if (window.loadingIndicator)
-          window.loadingIndicator.textContent = "Ошибка загрузки звуков";
-        alert("Ошибка загрузки аудио");
-      });
-  }
+  // --- Функция проверки доступа ---
+  async function checkAccess() {
+    try {
+      // Получаем ID пользователя из Telegram
+      const user = tg.initDataUnsafe?.user;
+      const userId = user?.id;
 
-  // Показываем попап только если не было в этой сессии
-  if (welcomePopup && readyBtn) {
-    if (!sessionStorage.getItem("welcomePopupShown")) {
-      welcomePopup.style.display = "flex";
-    } else {
-      welcomePopup.style.display = "none";
+      // Если открыли не в Телеграме или нет ID
+      if (!userId) {
+        console.warn("No Telegram User ID found. Are you testing in browser?");
+        // Для тестов в браузере можно раскомментировать строку ниже, чтобы пускало всех:
+        // runApp(); return;
+
+        accessLoader.style.display = "none";
+        accessDenied.style.display = "block";
+        accessDenied.querySelector("p").innerHTML =
+          "Чтобы получить доступ, отправьте в бота<br>команду /start и попробуйте еще раз.";
+        return;
+      }
+
+      // Делаем запрос к Google Таблице
+      const response = await fetch(`${GOOGLE_SCRIPT_URL}?user_id=${userId}`);
+      const data = await response.json();
+
+      if (data.allowed) {
+        // ДОСТУП РАЗРЕШЕН
+        accessScreen.style.display = "none"; // Убираем экран блокировки
+        runApp(); // Запускаем основную логику приложения
+      } else {
+        // ДОСТУП ЗАПРЕЩЕН
+        accessLoader.style.display = "none";
+        accessDenied.style.display = "block";
+      }
+    } catch (error) {
+      console.error("Ошибка проверки доступа:", error);
+      accessLoader.innerHTML = "Ошибка соединения.<br>Попробуйте позже.";
     }
-    readyBtn.addEventListener("click", () => {
-      welcomePopup.style.display = "none";
-      sessionStorage.setItem("welcomePopupShown", "1");
-      startAudioInitIfNeeded();
-    });
   }
 
-  // --- Инициализация аудио при переходе на тренажёры ---
-  // function handleAudioInitAndNavigate(e) {
-  //   if (audioInitialized || isAudioCached()) return;
-  //   e.preventDefault();
-  //   if (window.loadingIndicator) window.loadingIndicator.style.display = "flex";
-  //   pianoSoundService
-  //     .initialize()
-  //     .then(() => {
-  //       audioInitialized = true;
-  //       if (window.loadingIndicator)
-  //         window.loadingIndicator.style.display = "none";
-  //       window.location.href = e.currentTarget.href;
-  //     })
-  //     .catch((err) => {
-  //       if (window.loadingIndicator)
-  //         window.loadingIndicator.textContent = "Ошибка загрузки звуков";
-  //       alert("Ошибка загрузки аудио");
-  //     });
-  // }
+  // --- Основная логика приложения (запускается только после проверки) ---
+  function runApp() {
+    // --- Приветственный попап ---
+    const welcomePopup = document.getElementById("welcome-popup");
+    const readyBtn = document.getElementById("welcome-ready-btn");
+    let audioInitialized = false;
 
-  // Кнопка 'Проверка на попадание в ноты'
-  // const tunerBtn = document.querySelector('a[href="tuner.html"]');
-  // if (tunerBtn) {
-  //   tunerBtn.addEventListener("click", handleAudioInitAndNavigate);
-  // }
-  // Кнопка 'Вокальный тренажер'
-  // const trainerBtn = document.querySelector('a[href="trainer_menu.html"]');
-  // if (trainerBtn) {
-  //   trainerBtn.addEventListener("click", handleAudioInitAndNavigate);
-  // }
+    function isAudioCached() {
+      return (
+        pianoSoundService &&
+        pianoSoundService.isAnySampleLoaded &&
+        pianoSoundService.isAnySampleLoaded()
+      );
+    }
 
-  AchievementsEngine.checkAndUnlock();
+    function startAudioInitIfNeeded() {
+      if (audioInitialized || isAudioCached()) return;
+      if (window.loadingIndicator)
+        window.loadingIndicator.style.display = "flex";
+      pianoSoundService
+        .initialize()
+        .then(() => {
+          audioInitialized = true;
+          if (window.loadingIndicator)
+            window.loadingIndicator.style.display = "none";
+        })
+        .catch((err) => {
+          if (window.loadingIndicator)
+            window.loadingIndicator.textContent = "Ошибка загрузки звуков";
+          alert("Ошибка загрузки аудио");
+        });
+    }
+
+    // Показываем попап только если не было в этой сессии
+    if (welcomePopup && readyBtn) {
+      if (!sessionStorage.getItem("welcomePopupShown")) {
+        welcomePopup.style.display = "flex";
+      } else {
+        welcomePopup.style.display = "none";
+      }
+      readyBtn.addEventListener("click", () => {
+        welcomePopup.style.display = "none";
+        sessionStorage.setItem("welcomePopupShown", "1");
+        startAudioInitIfNeeded();
+      });
+    }
+
+    AchievementsEngine.checkAndUnlock();
+  }
+
+  // Запускаем проверку при загрузке
+  checkAccess();
 });
