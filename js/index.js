@@ -1,6 +1,7 @@
 // --- КОНФИГУРАЦИЯ ---
 // Вставь сюда ссылку на свой Google Script (Web App URL)
-const GOOGLE_SCRIPT_URL = "ВСТАВЬ_СЮДА_СВОЮ_ССЫЛКУ_ОТ_GOOGLE_SCRIPT";
+const GOOGLE_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbzW4boLz6MYzGt9it7rZADb_6nk3wA05K6ya2-oaOr_r3FD62H6s4TnZMbivc3yWPU/exec";
 
 document.addEventListener("DOMContentLoaded", () => {
   const tg = window.Telegram.WebApp;
