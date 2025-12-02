@@ -13,7 +13,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Функция проверки доступа ---
   async function checkAccess() {
+
     try {
+      // DEV-режим: разрешить доступ при запуске на localhost или 127.0.0.1
+      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (isDev) {
+        console.warn("DEV MODE: доступ разрешён для локальной разработки");
+        accessScreen.style.display = "none";
+        runApp();
+        return;
+      }
+
       // Получаем ID пользователя из Telegram
       const user = tg.initDataUnsafe?.user;
       const userId = user?.id;
@@ -21,9 +31,6 @@ document.addEventListener("DOMContentLoaded", () => {
       // Если открыли не в Телеграме или нет ID
       if (!userId) {
         console.warn("No Telegram User ID found. Are you testing in browser?");
-        // Для тестов в браузере можно раскомментировать строку ниже, чтобы пускало всех:
-        // runApp(); return;
-
         accessLoader.style.display = "none";
         accessDenied.style.display = "block";
         accessDenied.querySelector("p").innerHTML =
