@@ -29,10 +29,6 @@ class VoiceEngine {
     this.rmsThreshold = 0.025; // Порог громкости
   }
 
-  /**
-   * Инициализирует AudioContext.
-   * Желательно вызывать по клику пользователя.
-   */
   initAudioContext() {
     if (!this.audioContext) {
       try {
@@ -51,9 +47,6 @@ class VoiceEngine {
     }
   }
 
-  /**
-   * Запрашивает доступ к микрофону и начинает анализ.
-   */
   async startListening() {
     this.initAudioContext();
     if (this.isListening || !this.audioContext) return;
@@ -73,9 +66,6 @@ class VoiceEngine {
     }
   }
 
-  /**
-   * Останавливает прослушивание и освобождает ресурсы микрофона.
-   */
   stopListening() {
     if (!this.isListening || !this.sourceNode) return;
     this.sourceNode.mediaStream.getTracks().forEach((track) => track.stop());
@@ -84,16 +74,11 @@ class VoiceEngine {
     this.isListening = false;
   }
 
-  /**
-   * Основной метод получения текущей ноты.
-   * Возвращает объект с данными о ноте или null, если тишина/не распознано.
-   */
   getPitch() {
     if (!this.isListening || !this.analyser) return null;
 
     this.analyser.getFloatTimeDomainData(this.dataArray);
 
-    // 1. Проверка громкости (RMS)
     let rms = 0;
     for (let i = 0; i < this.dataArray.length; i++) {
       rms += this.dataArray[i] * this.dataArray[i];
@@ -102,89 +87,88 @@ class VoiceEngine {
 
     if (rms < this.rmsThreshold) return null;
 
-    // 2. Алгоритм YIN
-    const pitchInHz = this._yin(this.dataArray, this.audioContext.sampleRate);
+    // Используем новый, более точный алгоритм MPM
+    const pitchInHz = this._mpm(this.dataArray, this.audioContext.sampleRate);
 
     if (!pitchInHz) return null;
 
-    // 3. Конвертация в ноту
     return this.frequencyToNoteDetails(pitchInHz);
   }
 
   /**
-   * Внутренний алгоритм YIN (приватный метод по сути)
+   * Алгоритм MPM (McLeod Pitch Method) для определения высоты тона.
+   * Более устойчив к октавным ошибкам, чем YIN.
    */
-  _yin(buffer, sampleRate) {
-    const threshold = 0.12;
+  _mpm(buffer, sampleRate) {
+    const K = 0.9;
     const bufferSize = buffer.length;
-    const yinBufferSize = bufferSize / 2;
-    const yinBuffer = new Float32Array(yinBufferSize);
-    let tauEstimate = -1;
-    let pitchInHz = null; // Изменено с -1 на null для стандарта
+    const nsdf = new Float32Array(bufferSize);
 
-    // Шаг 2: Разностная функция
-    let runningSum = 0;
-    yinBuffer[0] = 1;
-    for (let tau = 1; tau < yinBufferSize; tau++) {
-      let differenceSum = 0;
-      for (let i = 0; i < yinBufferSize; i++) {
-        const delta = buffer[i] - buffer[i + tau];
-        differenceSum += delta * delta;
+    // 1. Автокорреляция с использованием NSDF
+    let acf = 0;
+    let m = 0;
+    for (let tau = 0; tau < bufferSize; tau++) {
+      acf = 0;
+      m = 0;
+      for (let i = 0; i < bufferSize - tau; i++) {
+        acf += buffer[i] * buffer[i + tau];
+        m += buffer[i] * buffer[i] + buffer[i + tau] * buffer[i + tau];
       }
-      runningSum += differenceSum;
-      yinBuffer[tau] = (differenceSum * tau) / (runningSum || 1);
+      nsdf[tau] = (2 * acf) / (m || 1);
     }
 
-    // Шаг 3 (улучшенный): Поиск самого глубокого минимума
-    let minTau = -1;
-    let minVal = Infinity;
-    for (let tau = 4; tau < yinBufferSize; tau++) {
-      if (yinBuffer[tau] < minVal) {
-        minVal = yinBuffer[tau];
-        minTau = tau;
+    // 2. Поиск пиков (локальных максимумов)
+    const maxPositions = [];
+    let maxVal = -Infinity;
+    for (let i = 1; i < nsdf.length - 1; i++) {
+      if (nsdf[i] > maxVal) {
+        maxVal = nsdf[i];
       }
-      // Если мы нашли минимум ниже порога, нет смысла искать дальше,
-      // так как кумулятивная функция в целом возрастает.
-      // Это предотвращает выбор октавных минимумов, которые могут быть дальше.
-      if (minVal < threshold) {
-        tauEstimate = minTau;
+      if (nsdf[i] > nsdf[i - 1] && nsdf[i] > nsdf[i + 1]) {
+        maxPositions.push(i);
+      }
+    }
+    if (maxPositions.length === 0) return null;
+
+    // 3. Выбор лучшего пика
+    let tauEstimate = -1;
+    const threshold = K * maxVal;
+    for (const pos of maxPositions) {
+      if (nsdf[pos] > threshold) {
+        tauEstimate = pos;
         break;
       }
     }
-    // Если порог так и не был достигнут, используем найденный глобальный минимум
-    if (tauEstimate === -1 && minTau > 0) {
-      tauEstimate = minTau;
-    }
-
-    // Шаг 4: Параболическая интерполяция (если порог не сработал, ищем глобальный минимум)
     if (tauEstimate === -1) {
-      let min = Infinity;
-      for (let tau = 4; tau < yinBufferSize; tau++) {
-        if (yinBuffer[tau] < min) {
-          min = yinBuffer[tau];
-          tauEstimate = tau;
+      let highestPeakVal = -Infinity;
+      for (const pos of maxPositions) {
+        if (nsdf[pos] > highestPeakVal) {
+          highestPeakVal = nsdf[pos];
+          tauEstimate = pos;
         }
       }
     }
 
-    if (tauEstimate > 0 && tauEstimate < yinBufferSize - 1) {
-      const y1 = yinBuffer[tauEstimate - 1];
-      const y2 = yinBuffer[tauEstimate];
-      const y3 = yinBuffer[tauEstimate + 1];
+    // 4. Параболическая интерполяция
+    let pitchInHz = null;
+    if (tauEstimate > 0 && tauEstimate < nsdf.length - 1) {
+      const y1 = nsdf[tauEstimate - 1];
+      const y2 = nsdf[tauEstimate];
+      const y3 = nsdf[tauEstimate + 1];
       const denominator = 2 * (2 * y2 - y3 - y1);
-
       if (denominator !== 0) {
-        const betterTau = tauEstimate + (y3 - y1) / denominator;
+        const betterTau = tauEstimate + (y1 - y3) / denominator;
         pitchInHz = sampleRate / betterTau;
       } else {
         pitchInHz = sampleRate / tauEstimate;
       }
     }
 
+    // 5. Фильтрация
     return pitchInHz > 50 && pitchInHz < 3000 ? pitchInHz : null;
   }
 
-  // --- Утилиты (доступны извне, так как нужны для UI) ---
+  // --- Утилиты (остаются без изменений) ---
 
   frequencyToNoteDetails(freq) {
     if (!freq) return null;
@@ -211,5 +195,5 @@ class VoiceEngine {
   }
 }
 
-// Экспортируем в глобальную область видимости
 window.VoiceEngine = VoiceEngine;
+// --- END OF FILE js/VoiceEngine.js ---
