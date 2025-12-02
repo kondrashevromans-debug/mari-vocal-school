@@ -135,17 +135,25 @@ class VoiceEngine {
       yinBuffer[tau] = (differenceSum * tau) / (runningSum || 1);
     }
 
-    // Шаг 3: Абсолютный порог
+    // Шаг 3 (улучшенный): Поиск самого глубокого минимума
+    let minTau = -1;
+    let minVal = Infinity;
     for (let tau = 4; tau < yinBufferSize; tau++) {
-      if (yinBuffer[tau] < threshold) {
-        if (
-          yinBuffer[tau] < yinBuffer[tau - 1] &&
-          yinBuffer[tau] < yinBuffer[tau + 1]
-        ) {
-          tauEstimate = tau;
-          break;
-        }
+      if (yinBuffer[tau] < minVal) {
+        minVal = yinBuffer[tau];
+        minTau = tau;
       }
+      // Если мы нашли минимум ниже порога, нет смысла искать дальше,
+      // так как кумулятивная функция в целом возрастает.
+      // Это предотвращает выбор октавных минимумов, которые могут быть дальше.
+      if (minVal < threshold) {
+        tauEstimate = minTau;
+        break;
+      }
+    }
+    // Если порог так и не был достигнут, используем найденный глобальный минимум
+    if (tauEstimate === -1 && minTau > 0) {
+      tauEstimate = minTau;
     }
 
     // Шаг 4: Параболическая интерполяция (если порог не сработал, ищем глобальный минимум)
