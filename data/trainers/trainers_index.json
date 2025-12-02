@@ -17,5 +17,11 @@
     "description": "Интерактивное упражнение на стабильность смыкания и поиск своего диапазона.",
     "url": "pulsation_trainer.html",
     "settings": ["difficulty"]
+  },
+  {
+    "id": "octave_ladder",
+    "title": "Октавная лесенка",
+    "description": "Тренировка удержания чистой ноты при последовательном подъеме на октаву.",
+    "settings": ["difficulty"]
   }
 ]

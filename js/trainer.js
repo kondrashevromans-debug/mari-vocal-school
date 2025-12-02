@@ -199,7 +199,13 @@ document.addEventListener("DOMContentLoaded", () => {
     noteStartTime = 0;
     selectedStartNote = null;
     if (originalExercise) {
-      currentExercise = applyOctaveShift(originalExercise, octaveShift);
+      // --- ИЗМЕНЕНИЕ: Для "лесенки" не применяем сдвиг, т.к. ноты генерируются позже
+      if (originalExercise.id === "octave_ladder") {
+        currentExercise = JSON.parse(JSON.stringify(originalExercise));
+        currentExercise.notes = []; // Очищаем ноты, они будут сгенерированы при клике
+      } else {
+        currentExercise = applyOctaveShift(originalExercise, octaveShift);
+      }
     }
     updateUI();
     document
@@ -332,7 +338,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (state === "IDLE") {
       if (currentExercise) {
         instructionsElement.textContent = currentExercise.description;
-        progressElement.textContent = `Ноты: ${currentExercise.notes.length}`;
+        // --- ИЗМЕНЕНИЕ: Показываем количество нот, только если они есть
+        if (currentExercise.notes && currentExercise.notes.length > 0) {
+          progressElement.textContent = `Ноты: ${currentExercise.notes.length}`;
+        } else {
+          progressElement.textContent = "";
+        }
       }
     } else if (state === "LISTENING" || state === "FEEDBACK") {
       const targetNote = currentExercise.notes[currentNoteIndex];
@@ -466,6 +477,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function isStartNoteValid(startNoteNum, exercise) {
+    // --- ИЗМЕНЕНИЕ: Для "лесенки" любая нота валидна, если октава помещается на пианино
+    if (exercise && exercise.id === "octave_ladder") {
+      return startNoteNum + 12 <= MAX_NOTE_NUM;
+    }
     if (!exercise || !exercise.notes || exercise.notes.length === 0)
       return true;
     const firstNoteNum = voiceEngine.noteToNoteNum(exercise.notes[0].noteName);
@@ -515,14 +530,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (startNoteNum === null) return;
 
     selectedStartNote = noteName;
-    const firstNoteNum = voiceEngine.noteToNoteNum(
-      originalExercise.notes[0].noteName
-    );
-    const semitoneShift = startNoteNum - firstNoteNum;
-    currentExercise = applyOctaveShift(originalExercise, semitoneShift);
+
+    // --- ИЗМЕНЕНИЕ: Логика генерации нот для "Октавной лесенки"
+    if (originalExercise.id === "octave_ladder") {
+      const generatedNotes = [];
+      // Генерируем 13 нот: начальная + 12 полутонов вверх
+      for (let i = 0; i <= 12; i++) {
+        const noteNum = startNoteNum + i;
+        if (noteNum > MAX_NOTE_NUM) break; // Не выходим за пределы пианино
+        generatedNotes.push({ noteName: voiceEngine.noteNumToNote(noteNum) });
+      }
+      // Создаем копию упражнения с новыми нотами
+      currentExercise = { ...originalExercise, notes: generatedNotes };
+    } else {
+      // Старая логика для других упражнений
+      const firstNoteNum = voiceEngine.noteToNoteNum(
+        originalExercise.notes[0].noteName
+      );
+      const semitoneShift = startNoteNum - firstNoteNum;
+      currentExercise = applyOctaveShift(originalExercise, semitoneShift);
+    }
 
     instructionsElement.textContent = `Стартовая нота: ${noteName}. Нажмите "Начать упражнение"`;
-    progressElement.textContent = `Выбранная нота: ${noteName}`;
+    progressElement.textContent = `Выбрана нота: ${noteName}`;
     document
       .querySelectorAll(".key.target")
       .forEach((k) => k.classList.remove("target"));
@@ -719,8 +749,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
     exerciseId = urlParams.get("exercise");
     octaveShift = parseInt(urlParams.get("shift") || "0");
-    holdDuration = parseFloat(urlParams.get("hold") || "1.0");
     difficulty = urlParams.get("difficulty") || "normal";
+
+    // --- ИЗМЕНЕНИЕ: Устанавливаем фиксированную длительность для "лесенки"
+    if (exerciseId === "octave_ladder") {
+      holdDuration = 3.0;
+    } else {
+      holdDuration = parseFloat(urlParams.get("hold") || "1.0");
+    }
 
     if (!exerciseId) {
       instructionsElement.textContent = "Ошибка: не указано упражнение.";
@@ -742,14 +778,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const response = await fetch(
-        `/mari-vocal-school/data/trainers/${exerciseId}.json`
-      );
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
-      originalExercise = await response.json();
+      // --- ИЗМЕНЕНИЕ: Вместо загрузки файла создаем объект-шаблон для "лесенки"
+      if (exerciseId === "octave_ladder") {
+        originalExercise = {
+          id: "octave_ladder",
+          title: "Октавная лесенка",
+          description:
+            "Удерживайте каждую ноту 3 секунды, поднимаясь по полутонам.",
+          notes: [], // Ноты будут сгенерированы при выборе стартовой
+        };
+      } else {
+        const response = await fetch(
+          `/mari-vocal-school/data/trainers/${exerciseId}.json`
+        );
+        if (!response.ok)
+          throw new Error(`HTTP error! status: ${response.status}`);
+        originalExercise = await response.json();
+      }
+
       currentExercise = applyOctaveShift(originalExercise, octaveShift);
-      trainerTitleElement.textContent = currentExercise.title;
+      trainerTitleElement.textContent = originalExercise.title;
       instructionsElement.textContent =
         "Кликните по ноте на пианино, с которой хотите начать упражнение";
       progressElement.textContent = "";
