@@ -199,12 +199,10 @@ document.addEventListener("DOMContentLoaded", () => {
     noteStartTime = 0;
     selectedStartNote = null;
     if (originalExercise) {
-      // --- ИЗМЕНЕНИЕ: Для "лесенки" не применяем сдвиг, т.к. ноты генерируются позже
-      if (originalExercise.id === "octave_ladder") {
-        currentExercise = JSON.parse(JSON.stringify(originalExercise));
-        currentExercise.notes = []; // Очищаем ноты, они будут сгенерированы при клике
-      } else {
-        currentExercise = applyOctaveShift(originalExercise, octaveShift);
+      currentExercise = JSON.parse(JSON.stringify(originalExercise));
+      // Для динамических упражнений очищаем ноты, они будут сгенерированы при клике
+      if (currentExercise.type === "dynamic") {
+        currentExercise.notes = [];
       }
     }
     updateUI();
@@ -338,7 +336,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (state === "IDLE") {
       if (currentExercise) {
         instructionsElement.textContent = currentExercise.description;
-        // --- ИЗМЕНЕНИЕ: Показываем количество нот, только если они есть
         if (currentExercise.notes && currentExercise.notes.length > 0) {
           progressElement.textContent = `Ноты: ${currentExercise.notes.length}`;
         } else {
@@ -477,22 +474,50 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function isStartNoteValid(startNoteNum, exercise) {
-    // --- ИЗМЕНЕНИЕ: Для "лесенки" любая нота валидна, если октава помещается на пианино
-    if (exercise && exercise.id === "octave_ladder") {
-      return startNoteNum + 12 <= MAX_NOTE_NUM;
+    if (!exercise) return true;
+
+    // Валидация для динамических упражнений
+    if (exercise.type === "dynamic" && exercise.generator) {
+      switch (exercise.generator.method) {
+        case "chromatic":
+          return startNoteNum + exercise.generator.steps <= MAX_NOTE_NUM;
+
+        // --- ИЗМЕНЕНИЕ: Добавлена валидация для интервалов ---
+        case "intervals":
+          if (
+            !exercise.generator.steps ||
+            exercise.generator.steps.length === 0
+          )
+            return true;
+          const minStep = Math.min(...exercise.generator.steps);
+          const maxStep = Math.max(...exercise.generator.steps);
+          return (
+            startNoteNum + minStep >= MIN_NOTE_NUM &&
+            startNoteNum + maxStep <= MAX_NOTE_NUM
+          );
+
+        default:
+          return true;
+      }
     }
-    if (!exercise || !exercise.notes || exercise.notes.length === 0)
-      return true;
-    const firstNoteNum = voiceEngine.noteToNoteNum(exercise.notes[0].noteName);
-    if (firstNoteNum === null) return false;
-    const semitoneShift = startNoteNum - firstNoteNum;
-    for (const note of exercise.notes) {
-      const noteNum = voiceEngine.noteToNoteNum(note.noteName);
-      if (noteNum === null) return false;
-      const shiftedNoteNum = noteNum + semitoneShift;
-      if (shiftedNoteNum < MIN_NOTE_NUM || shiftedNoteNum > MAX_NOTE_NUM)
-        return false;
+
+    // Валидация для статичных упражнений
+    if (exercise.type === "static" || !exercise.type) {
+      if (!exercise.notes || exercise.notes.length === 0) return true;
+      const firstNoteNum = voiceEngine.noteToNoteNum(
+        exercise.notes[0].noteName
+      );
+      if (firstNoteNum === null) return false;
+      const semitoneShift = startNoteNum - firstNoteNum;
+      for (const note of exercise.notes) {
+        const noteNum = voiceEngine.noteToNoteNum(note.noteName);
+        if (noteNum === null) return false;
+        const shiftedNoteNum = noteNum + semitoneShift;
+        if (shiftedNoteNum < MIN_NOTE_NUM || shiftedNoteNum > MAX_NOTE_NUM)
+          return false;
+      }
     }
+
     return true;
   }
 
@@ -530,20 +555,37 @@ document.addEventListener("DOMContentLoaded", () => {
     if (startNoteNum === null) return;
 
     selectedStartNote = noteName;
+    currentExercise = JSON.parse(JSON.stringify(originalExercise));
 
-    // --- ИЗМЕНЕНИЕ: Логика генерации нот для "Октавной лесенки"
-    if (originalExercise.id === "octave_ladder") {
+    // Генерация или транспонирование на основе типа упражнения
+    if (currentExercise.type === "dynamic" && currentExercise.generator) {
       const generatedNotes = [];
-      // Генерируем 13 нот: начальная + 12 полутонов вверх
-      for (let i = 0; i <= 12; i++) {
-        const noteNum = startNoteNum + i;
-        if (noteNum > MAX_NOTE_NUM) break; // Не выходим за пределы пианино
-        generatedNotes.push({ noteName: voiceEngine.noteNumToNote(noteNum) });
+      switch (currentExercise.generator.method) {
+        case "chromatic":
+          for (let i = 0; i <= currentExercise.generator.steps; i++) {
+            const noteNum = startNoteNum + i;
+            if (noteNum > MAX_NOTE_NUM) break;
+            generatedNotes.push({
+              noteName: voiceEngine.noteNumToNote(noteNum),
+            });
+          }
+          break;
+
+        // --- ИЗМЕНЕНИЕ: Добавлена генерация по интервалам ---
+        case "intervals":
+          currentExercise.generator.steps.forEach((step) => {
+            const noteNum = startNoteNum + step;
+            if (noteNum >= MIN_NOTE_NUM && noteNum <= MAX_NOTE_NUM) {
+              generatedNotes.push({
+                noteName: voiceEngine.noteNumToNote(noteNum),
+              });
+            }
+          });
+          break;
       }
-      // Создаем копию упражнения с новыми нотами
-      currentExercise = { ...originalExercise, notes: generatedNotes };
+      currentExercise.notes = generatedNotes;
     } else {
-      // Старая логика для других упражнений
+      // По умолчанию или для "static"
       const firstNoteNum = voiceEngine.noteToNoteNum(
         originalExercise.notes[0].noteName
       );
@@ -751,13 +793,6 @@ document.addEventListener("DOMContentLoaded", () => {
     octaveShift = parseInt(urlParams.get("shift") || "0");
     difficulty = urlParams.get("difficulty") || "normal";
 
-    // --- ИЗМЕНЕНИЕ: Устанавливаем фиксированную длительность для "лесенки"
-    if (exerciseId === "octave_ladder") {
-      holdDuration = 3.0;
-    } else {
-      holdDuration = parseFloat(urlParams.get("hold") || "1.0");
-    }
-
     if (!exerciseId) {
       instructionsElement.textContent = "Ошибка: не указано упражнение.";
       return;
@@ -778,26 +813,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      // --- ИЗМЕНЕНИЕ: Вместо загрузки файла создаем объект-шаблон для "лесенки"
-      if (exerciseId === "octave_ladder") {
-        originalExercise = {
-          id: "octave_ladder",
-          title: "Октавная лесенка",
-          description:
-            "Удерживайте каждую ноту 3 секунды, поднимаясь по полутонам.",
-          notes: [], // Ноты будут сгенерированы при выборе стартовой
-        };
+      // Всегда загружаем JSON-конфигурацию упражнения
+      const response = await fetch(
+        `/mari-vocal-school/data/trainers/${exerciseId}.json`
+      );
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
+      originalExercise = await response.json();
+
+      // Устанавливаем длительность из конфига упражнения или из URL
+      holdDuration =
+        originalExercise.holdDuration ||
+        parseFloat(urlParams.get("hold") || "1.0");
+
+      // Для статичных упражнений применяем сдвиг октавы из URL
+      if (originalExercise.type === "static") {
+        currentExercise = applyOctaveShift(originalExercise, octaveShift);
       } else {
-        const response = await fetch(
-          `/mari-vocal-school/data/trainers/${exerciseId}.json`
-        );
-        if (!response.ok)
-          throw new Error(`HTTP error! status: ${response.status}`);
-        originalExercise = await response.json();
+        currentExercise = JSON.parse(JSON.stringify(originalExercise));
       }
 
-      currentExercise = applyOctaveShift(originalExercise, octaveShift);
-      trainerTitleElement.textContent = originalExercise.title;
+      trainerTitleElement.textContent = currentExercise.title;
       instructionsElement.textContent =
         "Кликните по ноте на пианино, с которой хотите начать упражнение";
       progressElement.textContent = "";

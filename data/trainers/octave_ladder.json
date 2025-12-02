@@ -1,0 +1,11 @@
+{
+  "id": "octave_ladder",
+  "title": "Октавная лесенка",
+  "description": "Тренировка удержания чистой ноты при последовательном подъеме на октаву.",
+  "type": "dynamic",
+  "holdDuration": 3.0,
+  "generator": {
+    "method": "chromatic",
+    "steps": 12
+  }
+}

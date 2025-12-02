@@ -1,27 +1,33 @@
 [
   {
-    "id": "five_note_sequence_c4",
+    "id": "five_note_sequence",
     "title": "Пятинотка",
     "description": "Развивает плавность звука и точность интонирования в пределах квинты.",
     "settings": ["difficulty", "duration"]
   },
   {
-    "id": "major_arpeggio_g3",
+    "id": "major_arpeggio",
     "title": "Арпеджио",
     "description": "Тренирует скачки по нотам мажорного трезвучия, улучшая координацию.",
     "settings": ["difficulty", "duration"]
+  },
+  {
+    "id": "interval_major_third",
+    "title": "Большая терция",
+    "description": "Упражнение на развитие правильного интонирования интервалов.",
+    "settings": ["difficulty", "duration"]
+  },
+  {
+    "id": "octave_ladder",
+    "title": "Октавная лесенка",
+    "description": "Тренировка удержания чистой ноты при последовательном подъеме на октаву.",
+    "settings": ["difficulty"]
   },
   {
     "id": "pulsation_hold",
     "title": "Пульсация и удержание",
     "description": "Интерактивное упражнение на стабильность смыкания и поиск своего диапазона.",
     "url": "pulsation_trainer.html",
-    "settings": ["difficulty"]
-  },
-  {
-    "id": "octave_ladder",
-    "title": "Октавная лесенка",
-    "description": "Тренировка удержания чистой ноты при последовательном подъеме на октаву.",
     "settings": ["difficulty"]
   }
 ]
