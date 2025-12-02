@@ -13,10 +13,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Функция проверки доступа ---
   async function checkAccess() {
-
     try {
       // DEV-режим: разрешить доступ при запуске на localhost или 127.0.0.1
-      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const isDev =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
       if (isDev) {
         console.warn("DEV MODE: доступ разрешён для локальной разработки");
         accessScreen.style.display = "none";
