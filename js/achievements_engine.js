@@ -280,7 +280,7 @@ window.AchievementsEngine = (() => {
     secret_night_owl: () => !!localStorage.getItem("secret_night_owl"),
     secret_early_bird: () => !!localStorage.getItem("secret_early_bird"),
     secret_curious_mind: () => {
-      const TOTAL_INFO_ICONS = 5;
+      const TOTAL_INFO_ICONS = 6;
       const clickedIcons = getStorageItem("clickedInfoIcons", []);
       const clickedIconsSet = new Set(clickedIcons);
       return clickedIconsSet.size >= TOTAL_INFO_ICONS;
@@ -421,6 +421,10 @@ window.AchievementsEngine = (() => {
     "main-menu-exercises": {
       title: "Упражнения",
       text: "Пошаговые треки развития голоса. Начните с 'Фундамента', чтобы снять зажимы, а затем переходите к специализированным трекам.",
+    },
+    "main-menu-warmups": {
+      title: "Вокальные распевки",
+      text: "Здесь собраны короткие аудио-распевки для ежедневной практики или разогрева. Повторяйте за пианино, чтобы развивать интонирование и вокальную технику.",
     },
     "main-menu-tuner": {
       title: "Тюнер",
