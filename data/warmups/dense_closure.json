@@ -1,0 +1,55 @@
+{
+  "title": "Плотное смыкание",
+  "exercises": [
+    {
+      "id": "warmup_dc_01",
+      "title": "Дикционные слогосочетания по нотам",
+      "file": "assets/audio/warmups/dense_closure/dense_01.mp3"
+    },
+    {
+      "id": "warmup_dc_02",
+      "title": "Квинта на звук",
+      "file": "assets/audio/warmups/dense_closure/dense_02.mp3"
+    },
+    {
+      "id": "warmup_dc_03",
+      "title": "Квинта на слогосочетания",
+      "file": "assets/audio/warmups/dense_closure/dense_03.mp3"
+    },
+    {
+      "id": "warmup_dc_04",
+      "title": "Медленный самолет с октавой",
+      "file": "assets/audio/warmups/dense_closure/dense_04.mp3"
+    },
+    {
+      "id": "warmup_dc_05",
+      "title": "Пульсация и удержание по нотам",
+      "file": "assets/audio/warmups/dense_closure/dense_05.mp3"
+    },
+    {
+      "id": "warmup_dc_06",
+      "title": "Спускающийся самолетик по нотам",
+      "file": "assets/audio/warmups/dense_closure/dense_06.mp3"
+    },
+    {
+      "id": "warmup_dc_07",
+      "title": "Терция на звук",
+      "file": "assets/audio/warmups/dense_closure/dense_07.mp3"
+    },
+    {
+      "id": "warmup_dc_08",
+      "title": "Терция на слогосочетания",
+      "file": "assets/audio/warmups/dense_closure/dense_08.mp3"
+    },
+    {
+      "id": "warmup_dc_09",
+      "title": "Трезвучие на звук",
+      "file": "assets/audio/warmups/dense_closure/dense_09.mp3"
+    },
+    {
+      "id": "warmup_dc_10",
+      "title": "Трезвучие на слогосочетания",
+      "file": "assets/audio/warmups/dense_closure/dense_10.mp3"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+<!-- Файл: warmup_player.html -->
+
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <base href="/mari-vocal-school/" />
+    <title>Вокальные распевки - Плеер</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="page-warmup-player">
+    <div class="app-container">
+      <header class="header-with-back-button">
+        <a href="warmups_menu.html" class="back-button">← Назад</a>
+        <h1 id="category-title">Загрузка...</h1>
+      </header>
+
+      <main>
+        <div class="container">
+          <ul id="exercise-list" class="exercise-list">
+            <!-- Список упражнений будет загружен сюда с помощью JS -->
+          </ul>
+        </div>
+      </main>
+    </div>
+
+    <!-- Плеер теперь вне основного контейнера для удобства позиционирования -->
+    <div class="player-container">
+      <div id="current-track-title" class="current-track">
+        Выберите распевку
+      </div>
+
+      <div class="progress-bar-wrapper">
+        <div id="progress-bar-container">
+          <div id="progress-bar-filled"></div>
+        </div>
+      </div>
+
+      <div class="time-container">
+        <span id="current-time">0:00</span>
+        <span id="total-duration">0:00</span>
+      </div>
+
+      <div class="controls-container">
+        <button id="play-pause-btn" class="play-btn"></button>
+      </div>
+    </div>
+
+    <audio id="audio-player"></audio>
+    <script src="js/warmup_player.js"></script>
+  </body>
+</html>

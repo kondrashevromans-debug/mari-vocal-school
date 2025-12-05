@@ -1,0 +1,25 @@
+{
+  "title": "Жесткое смыкание",
+  "exercises": [
+    {
+      "id": "warmup_sc_01",
+      "title": "Квинта на звук и слогосочетания",
+      "file": "assets/audio/warmups/stiff_closure/stiff_01.mp3"
+    },
+    {
+      "id": "warmup_sc_02",
+      "title": "Пульсация и удержание по нотам",
+      "file": "assets/audio/warmups/stiff_closure/stiff_02.mp3"
+    },
+    {
+      "id": "warmup_sc_03",
+      "title": "Терция на звук и слогосочетания",
+      "file": "assets/audio/warmups/stiff_closure/stiff_03.mp3"
+    },
+    {
+      "id": "warmup_sc_04",
+      "title": "Трезвучие на звук и слогосочетания",
+      "file": "assets/audio/warmups/stiff_closure/stiff_04.mp3"
+    }
+  ]
+}

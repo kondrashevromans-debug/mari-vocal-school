@@ -1,0 +1,25 @@
+{
+  "title": "Смыкание и эмоции",
+  "exercises": [
+    {
+      "id": "warmup_ec_01",
+      "title": "Квинта на звук и слогосочетания",
+      "file": "assets/audio/warmups/emotional_closure/emotional_01.mp3"
+    },
+    {
+      "id": "warmup_ec_02",
+      "title": "Пульсация и удержание по нотам",
+      "file": "assets/audio/warmups/emotional_closure/emotional_02.mp3"
+    },
+    {
+      "id": "warmup_ec_03",
+      "title": "Терция на звук и слогосочетания",
+      "file": "assets/audio/warmups/emotional_closure/emotional_03.mp3"
+    },
+    {
+      "id": "warmup_ec_04",
+      "title": "Трезвучие на звук и слогосочетания",
+      "file": "assets/audio/warmups/emotional_closure/emotional_04.mp3"
+    }
+  ]
+}

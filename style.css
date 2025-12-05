@@ -865,6 +865,11 @@ body {
   margin-top: 5.9375rem; /* 95px */
 }
 
+/* Отступы для новых страниц распевок */
+.page-warmups-menu .app-container,
+.page-warmup-player .app-container {
+  margin-top: 5rem; /* 80px */
+}
 /* =================================== */
 /*   СТИЛИ ДЛЯ ГЛАВНОЙ СТРАНИЦЫ (ДОП.) */
 /* =================================== */
@@ -1460,4 +1465,204 @@ body {
   background: #ffc107;
   color: #222;
   cursor: pointer;
+}
+
+/* =================================== */
+/*   СТИЛИ ДЛЯ РАЗДЕЛА РАСПЕВОК        */
+/* =================================== */
+
+/* --- Отступы для страниц от шапки --- */
+.page-warmups-menu .app-container,
+.page-warmup-player .app-container {
+  /* Отступ сверху, чтобы контент не уезжал под фиксированную шапку */
+  padding-top: 5rem; /* 80px, подбирается по высоте шапки */
+  /* Отступ снизу, чтобы контент не уезжал под плеер */
+  padding-bottom: 10rem; /* 160px, подбирается по высоте плеера */
+}
+
+/* --- Стили для меню выбора категорий (warmups_menu.html) --- */
+#warmup-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem; /* 15px */
+}
+
+.category-card {
+  display: block; /* Чтобы ссылка занимала всю ширину */
+  padding: 1.25rem; /* 20px */
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-radius: 0.75rem; /* 12px */
+  text-decoration: none;
+  color: var(--tg-theme-text-color, #fff);
+  border: 1px solid
+    color-mix(in srgb, var(--tg-theme-secondary-bg-color, #1e1e1e) 50%, black);
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.category-card:active {
+  background-color: color-mix(
+    in srgb,
+    var(--tg-theme-secondary-bg-color, #1e1e1e) 80%,
+    black
+  );
+  transform: scale(0.98);
+}
+
+.category-card__title {
+  margin: 0 0 0.5rem 0; /* 8px */
+  font-size: 1.125rem; /* 18px */
+  font-weight: 600;
+}
+
+.category-card__description {
+  margin: 0;
+  font-size: 0.875rem; /* 14px */
+  color: var(--tg-theme-hint-color, #aaa);
+  line-height: 1.5;
+}
+
+/* --- Стили для списка распевок (warmup_player.html) --- */
+.exercise-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem; /* 8px */
+}
+
+.exercise-list-item {
+  padding: 1rem; /* 16px */
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  border-radius: 0.5rem; /* 8px */
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-weight: 500;
+  border-left: 3px solid transparent; /* Для индикации активного трека */
+}
+
+.exercise-list-item.active {
+  background-color: color-mix(
+    in srgb,
+    var(--tg-theme-button-color, #007bff) 20%,
+    var(--tg-theme-secondary-bg-color, #1e1e1e)
+  );
+  color: var(--tg-theme-button-color, #007bff);
+  border-left-color: var(--tg-theme-button-color, #007bff);
+}
+
+.page-warmup-player main {
+  /* 
+    Добавляем "воздух" снизу, равный высоте плеера + небольшой запас.
+    Это позволит прокрутить список до самого конца, чтобы последний
+    элемент не прятался за плеером.
+  */
+  padding-bottom: 11rem; /* ~176px */
+}
+
+/* --- Стили для плеера (плавающий) --- */
+.player-container {
+  position: fixed;
+  /* Приподнимаем плеер от краев экрана */
+  bottom: 1rem; /* 16px */
+  left: 1rem; /* 16px */
+  right: 1rem; /* 16px */
+
+  background-color: var(--tg-theme-secondary-bg-color, #1e1e1e);
+  /* Скругляем углы, как у других карточек */
+  border-radius: 0.75rem; /* 12px */
+
+  /* Добавляем тень для "глубины" */
+  box-shadow: 0 0.25rem 1.5rem rgba(0, 0, 0, 0.3); /* 4px 24px */
+
+  padding: 1rem;
+  /* Отступ снизу для безопасной зоны на iPhone */
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem; /* 12px */
+}
+
+.current-track {
+  text-align: center;
+  font-size: 0.875rem; /* 14px */
+  color: var(--tg-theme-hint-color, #aaa);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.progress-bar-wrapper {
+  padding: 0.5rem 0; /* 8px */
+}
+
+#progress-bar-container {
+  width: 100%;
+  height: 0.375rem; /* 6px */
+  background-color: var(--tg-theme-bg-color, #333);
+  border-radius: 0.25rem; /* 4px */
+  cursor: pointer;
+}
+
+#progress-bar-filled {
+  height: 100%;
+  width: 0%;
+  background-color: var(--tg-theme-button-color, #007bff);
+  border-radius: 0.25rem; /* 4px */
+}
+
+.time-container {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem; /* 12px */
+  color: var(--tg-theme-hint-color, #aaa);
+}
+
+.controls-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#play-pause-btn {
+  width: 3.5rem; /* 56px */
+  height: 3.5rem; /* 56px */
+  border-radius: 50%;
+  border: none;
+  background-color: var(--tg-theme-button-color, #007bff);
+  color: var(--tg-theme-button-text-color, #fff);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease, filter 0.2s ease;
+}
+
+#play-pause-btn:active {
+  transform: scale(0.95);
+  filter: brightness(0.9);
+}
+
+/* --- Иконки Play/Pause через псевдо-элементы --- */
+#play-pause-btn.play-btn::before {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  width: 0;
+  height: 1.25rem; /* 20px */
+  border-top: 0.625rem solid transparent; /* 10px */
+  border-bottom: 0.625rem solid transparent; /* 10px */
+  border-left: 1.125rem solid var(--tg-theme-button-text-color, #fff); /* 18px */
+  margin-left: 0.25rem; /* 4px */
+}
+
+#play-pause-btn.pause-btn::before {
+  content: "";
+  display: block;
+  width: 1rem; /* 16px */
+  height: 1.125rem; /* 18px */
+  border-left: 0.375rem solid var(--tg-theme-button-text-color, #fff); /* 6px */
+  border-right: 0.375rem solid var(--tg-theme-button-text-color, #fff); /* 6px */
 }
