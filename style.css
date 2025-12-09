@@ -1704,14 +1704,14 @@ body {
 }
 
 .diction-trainer-display {
-  font-size: 1.4em; /* Уменьшаем шрифт для целой строки */
+  font-size: 1.4em;
   font-weight: 500;
-  color: var(--accent-color);
-  padding: 15px; /* Немного уменьшим отступы */
+  color: #333; /* ИСПРАВЛЕНИЕ: Явно задаем темный цвет для текста */
+  padding: 15px;
   background-color: #fff;
   border-radius: 6px;
-  min-height: 80px; /* Увеличим минимальную высоту */
-  line-height: 1.5; /* Улучшаем читаемость при переносе строк */
+  min-height: 80px;
+  line-height: 1.5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1733,7 +1733,7 @@ body {
   font-size: 1.2em;
   cursor: pointer;
   color: #333;
-  user-select: none; /* Запретить выделение текста на кнопке */
+  user-select: none;
 }
 .diction-trainer-button:disabled {
   opacity: 0.4;
