@@ -104,6 +104,15 @@ document.addEventListener("DOMContentLoaded", () => {
   let ignoreFramesCounter = 0;
   let previousSmoothedFreq = null;
 
+  // =================== НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ПОСТ-ОБРАБОТКИ ===================
+  // Сколько раз подряд мы должны увидеть ноту, чтобы считать ее стабильной.
+  // 3-5 - хорошее значение. Чем выше, тем стабильнее, но медленнее реакция.
+  const CONFIRMATION_THRESHOLD = 3;
+  let stableNoteDetails = null; // Детали стабильной ноты, которая сейчас на экране
+  let potentialNoteNum = null; // Номер ноты-кандидата
+  let potentialNoteCount = 0; // Счетчик, сколько раз мы видели ноту-кандидата
+  // ==========================================================================
+
   let isFrozen = false;
   let referenceOscillator = null;
   let successfulSingTimeStart = 0;
@@ -441,7 +450,7 @@ document.addEventListener("DOMContentLoaded", () => {
         rawFreq = rawPitchInfo.frequency;
       }
 
-      // --- МЕДИАННЫЙ ФИЛЬТР ---
+      // --- МЕДИАННЫЙ ФИЛЬТР (ВАШ КОД, ОСТАВЛЕН БЕЗ ИЗМЕНЕНИЙ) ---
       pitchBuffer.push(rawFreq);
       if (pitchBuffer.length > SMOOTHING_WINDOW_SIZE) {
         pitchBuffer.shift();
@@ -457,7 +466,7 @@ document.addEventListener("DOMContentLoaded", () => {
         smoothedFreq = validPitches[Math.floor(validPitches.length / 2)];
       }
 
-      // --- ЗАЩИТА ОТ АТАКИ ---
+      // --- ЗАЩИТА ОТ АТАКИ (ВАШ КОД, ОСТАВЛЕН БЕЗ ИЗМЕНЕНИЙ) ---
       if (previousSmoothedFreq === null && smoothedFreq !== null) {
         ignoreFramesCounter = 5;
       }
@@ -475,56 +484,132 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       // -----------------------
 
+      // =================== НАЧАЛО: ЛОГИКА СГЛАЖИВАНИЯ И ПОДТВЕРЖДЕНИЯ НОТЫ ===================
       if (pitchInfo) {
-        noteElement.textContent = pitchInfo.note;
-        octaveElement.textContent = pitchInfo.octave;
-        centsElement.textContent = `Отклонение: ${pitchInfo.cents.toFixed(
-          0
-        )} cents`;
-        updateTuner(pitchInfo.cents);
+        const currentNoteNum = pitchInfo.noteNum;
+        if (currentNoteNum === potentialNoteNum) {
+          potentialNoteCount++;
+        } else {
+          potentialNoteNum = currentNoteNum;
+          potentialNoteCount = 1;
+        }
 
-        if (!isManuallyScrolling) scrollToNote(pitchInfo.noteNum);
+        if (potentialNoteCount >= CONFIRMATION_THRESHOLD) {
+          // Нота подтверждена! Теперь можно обновлять UI и игровую логику.
+          // Если это новая стабильная нота, или если центы старой обновились
+          if (
+            !stableNoteDetails ||
+            stableNoteDetails.noteNum !== pitchInfo.noteNum
+          ) {
+            stableNoteDetails = pitchInfo;
+          } else {
+            // Нота та же, но центы могли измениться. Обновляем их.
+            stableNoteDetails.cents = pitchInfo.cents;
+          }
 
-        if (targetNote) {
-          const sungNoteWithOctave = pitchInfo.note + pitchInfo.octave;
+          // --- ВСЯ ЛОГИКА ОБНОВЛЕНИЯ UI И СТАТИСТИКИ ПЕРЕНЕСЕНА СЮДА ---
+          noteElement.textContent = stableNoteDetails.note;
+          octaveElement.textContent = stableNoteDetails.octave;
+          centsElement.textContent = `Отклонение: ${stableNoteDetails.cents.toFixed(
+            0
+          )} cents`;
+          updateTuner(stableNoteDetails.cents);
+
+          if (!isManuallyScrolling) scrollToNote(stableNoteDetails.noteNum);
+
+          if (targetNote) {
+            const sungNoteWithOctave =
+              stableNoteDetails.note + stableNoteDetails.octave;
+            display.classList.remove("correct", "octave-miss", "wrong");
+            if (sungNoteWithOctave === targetNote)
+              display.classList.add("correct");
+            else if (
+              stableNoteDetails.note === targetNote.replace(/[0-9]/g, "")
+            )
+              display.classList.add("octave-miss");
+            else display.classList.add("wrong");
+          }
+          // --- Конец логики UI ---
+
+          // --- Игровая логика (XP, Stats) ---
+          let isCorrectNote = false;
+          if (targetNote) {
+            if (
+              stableNoteDetails.note + stableNoteDetails.octave ===
+              targetNote
+            )
+              isCorrectNote = true;
+          }
+
+          if (isCorrectNote) {
+            if (successfulSingTimeStart === 0)
+              successfulSingTimeStart = Date.now();
+            currentStreak = (Date.now() - successfulSingTimeStart) / 1000;
+            recentCents.push(Math.abs(stableNoteDetails.cents));
+            if (recentCents.length > 60) recentCents.shift();
+            if (recentCents.length === 60) {
+              const avgCents =
+                recentCents.reduce((a, b) => a + b, 0) / recentCents.length;
+              if (avgCents < sessionStats.bestIntonation.cents)
+                sessionStats.bestIntonation = {
+                  cents: avgCents,
+                  note: targetNote,
+                };
+              if (avgCents < userProgress.bestIntonation.cents)
+                userProgress.bestIntonation = {
+                  cents: avgCents,
+                  note: targetNote,
+                };
+              userProgress.chromaticNotes.add(stableNoteDetails.note);
+            }
+          } else {
+            if (successfulSingTimeStart > 0) {
+              const elapsedSeconds =
+                (Date.now() - successfulSingTimeStart) / 1000;
+              userProgress.xp += Math.round(elapsedSeconds * XP_PER_SECOND);
+              if (!sessionStats.noteStats[targetNote])
+                sessionStats.noteStats[targetNote] = 0;
+              sessionStats.noteStats[targetNote] += elapsedSeconds;
+              if (currentStreak > sessionStats.longestHold.time)
+                sessionStats.longestHold = {
+                  time: currentStreak,
+                  note: targetNote,
+                };
+              if (!userProgress.noteStats[targetNote])
+                userProgress.noteStats[targetNote] = 0;
+              userProgress.noteStats[targetNote] += elapsedSeconds;
+              if (currentStreak > userProgress.longestHold.time)
+                userProgress.longestHold = {
+                  time: currentStreak,
+                  note: targetNote,
+                };
+              updateLastPracticeDate();
+              updateProgressUI();
+              checkTunerAchievements();
+            }
+            successfulSingTimeStart = 0;
+            currentStreak = 0;
+            recentCents = [];
+          }
+        }
+      } else {
+        // Если звука нет (pitchInfo is null)
+        if (stableNoteDetails) {
+          // Если до этого была стабильная нота, сбрасываем UI
+          noteElement.textContent = "--";
+          octaveElement.textContent = "";
+          centsElement.textContent = "Пойте в микрофон...";
+          updateTuner(null);
           display.classList.remove("correct", "octave-miss", "wrong");
-          if (sungNoteWithOctave === targetNote)
-            display.classList.add("correct");
-          else if (pitchInfo.note === targetNote.replace(/[0-9]/g, ""))
-            display.classList.add("octave-miss");
-          else display.classList.add("wrong");
         }
-      } else {
-        noteElement.textContent = "--";
-        octaveElement.textContent = "";
-        centsElement.textContent = "Пойте в микрофон...";
-        updateTuner(null);
-        display.classList.remove("correct", "octave-miss", "wrong");
-      }
+        // Сбрасываем состояние, чтобы при появлении нового звука не было задержки
+        stableNoteDetails = null;
+        potentialNoteNum = null;
+        potentialNoteCount = 0;
 
-      // --- Игровая логика (XP, Stats) ---
-      let isCorrectNote = false;
-      if (pitchInfo && targetNote) {
-        if (pitchInfo.note + pitchInfo.octave === targetNote)
-          isCorrectNote = true;
-      }
-
-      if (isCorrectNote) {
-        if (successfulSingTimeStart === 0) successfulSingTimeStart = Date.now();
-        currentStreak = (Date.now() - successfulSingTimeStart) / 1000;
-        recentCents.push(Math.abs(pitchInfo.cents));
-        if (recentCents.length > 60) recentCents.shift();
-        if (recentCents.length === 60) {
-          const avgCents =
-            recentCents.reduce((a, b) => a + b, 0) / recentCents.length;
-          if (avgCents < sessionStats.bestIntonation.cents)
-            sessionStats.bestIntonation = { cents: avgCents, note: targetNote };
-          if (avgCents < userProgress.bestIntonation.cents)
-            userProgress.bestIntonation = { cents: avgCents, note: targetNote };
-          userProgress.chromaticNotes.add(pitchInfo.note);
-        }
-      } else {
+        // Сбрасываем игровую логику при тишине
         if (successfulSingTimeStart > 0) {
+          // (Копируем логику сохранения прогресса при прерывании ноты)
           const elapsedSeconds = (Date.now() - successfulSingTimeStart) / 1000;
           userProgress.xp += Math.round(elapsedSeconds * XP_PER_SECOND);
           if (!sessionStats.noteStats[targetNote])
@@ -551,6 +636,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentStreak = 0;
         recentCents = [];
       }
+      // =================== КОНЕЦ: ЛОГИКА СГЛАЖИВАНИЯ И ПОДТВЕРЖДЕНИЯ НОТЫ ===================
 
       if (Date.now() - lastSaveTime > 5000) {
         saveProgress();

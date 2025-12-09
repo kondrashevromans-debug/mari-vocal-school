@@ -61,7 +61,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const SMOOTHING_WINDOW_SIZE = 5;
   let pitchBuffer = [];
   let ignoreFramesCounter = 0;
-  let previousSmoothedFreq = null; // Важно: храним состояние ДО обнуления
+  let previousSmoothedFreq = null;
+
+  // =================== НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ПОСТ-ОБРАБОТКИ ===================
+  const CONFIRMATION_THRESHOLD = 3; // Порог подтверждения ноты
+  let stableNoteDetails = null; // Стабильные данные о ноте
+  let potentialNoteNum = null; // Номер ноты-кандидата
+  let potentialNoteCount = 0; // Счетчик для кандидата
+  // ==========================================================================
 
   // --- Переменные состояния упражнения ---
   let state = "SELECT_NOTE";
@@ -93,68 +100,78 @@ document.addEventListener("DOMContentLoaded", () => {
     let pitchInfo = null;
 
     if (voiceEngine.isListening) {
-      // Получаем сырые данные
       const rawPitchInfo = voiceEngine.getPitch();
-
-      // Извлекаем частоту (или null)
       let rawFreq = null;
       if (rawPitchInfo && typeof rawPitchInfo.frequency === "number") {
         rawFreq = rawPitchInfo.frequency;
       }
 
-      // --- МЕДИАННЫЙ ФИЛЬТР ---
+      // --- МЕДИАННЫЙ ФИЛЬТР (без изменений) ---
       pitchBuffer.push(rawFreq);
       if (pitchBuffer.length > SMOOTHING_WINDOW_SIZE) {
         pitchBuffer.shift();
       }
-
-      // Фильтруем валидные значения
       const validPitches = pitchBuffer.filter(
         (p) => typeof p === "number" && p > 0
       );
-
       let smoothedFreq = null;
-
-      // Если больше половины буфера заполнено звуком, считаем медиану
       if (validPitches.length > SMOOTHING_WINDOW_SIZE / 2) {
         validPitches.sort((a, b) => a - b);
         smoothedFreq = validPitches[Math.floor(validPitches.length / 2)];
       }
 
-      // --- ЛОГИКА АТАКИ (ИСПРАВЛЕННАЯ) ---
-      // Сравниваем текущий сглаженный сигнал с ПРЕДЫДУЩИМ сглаженным (а не с выходным)
+      // --- ЛОГИКА АТАКИ (без изменений) ---
       if (previousSmoothedFreq === null && smoothedFreq !== null) {
-        // Обнаружен переход от тишины к звуку -> включаем игнор на 5 кадров
         ignoreFramesCounter = 5;
       }
-
-      // Обновляем "предыдущий" для следующего кадра
       previousSmoothedFreq = smoothedFreq;
-
-      // Применяем игнор
       if (ignoreFramesCounter > 0) {
         currentPitchFreq = null;
         pitchInfo = null;
         ignoreFramesCounter--;
       } else {
         currentPitchFreq = smoothedFreq;
-        // Если частота есть, получаем инфо о ноте
         if (currentPitchFreq) {
           pitchInfo = voiceEngine.frequencyToNoteDetails(currentPitchFreq);
         }
       }
       // ----------------------------------------------------
 
-      updatePitchDisplay(pitchInfo);
+      // =================== НАЧАЛО: ЛОГИКА СГЛАЖИВАНИЯ И ПОДТВЕРЖДЕНИЯ НОТЫ ===================
+      if (pitchInfo) {
+        const currentNoteNum = pitchInfo.noteNum;
+        if (currentNoteNum === potentialNoteNum) {
+          potentialNoteCount++;
+        } else {
+          potentialNoteNum = currentNoteNum;
+          potentialNoteCount = 1;
+        }
+
+        if (potentialNoteCount >= CONFIRMATION_THRESHOLD) {
+          stableNoteDetails = pitchInfo;
+        }
+      } else {
+        stableNoteDetails = null;
+        potentialNoteNum = null;
+        potentialNoteCount = 0;
+      }
+      // =================== КОНЕЦ: ЛОГИКИ СГЛАЖИВАНИЯ =======================================
+
+      // Вся дальнейшая логика использует `stableNoteDetails`
+      updatePitchDisplay(stableNoteDetails);
 
       if (state === "LISTENING") {
         const isNoteCorrect =
-          pitchInfo &&
-          pitchInfo.noteNum === currentNoteNum &&
-          Math.abs(pitchInfo.cents) <= centTolerance;
+          stableNoteDetails &&
+          stableNoteDetails.noteNum === currentNoteNum &&
+          Math.abs(stableNoteDetails.cents) <= centTolerance;
 
-        if (isNoteCorrect) correctFrames++;
-        else correctFrames = Math.max(0, correctFrames - 2);
+        if (isNoteCorrect) {
+          correctFrames++;
+        } else {
+          // Уменьшаем счетчик медленнее, чтобы дать шанс на восстановление
+          correctFrames = Math.max(0, correctFrames - 2);
+        }
 
         if (correctFrames >= REQUIRED_CORRECT_FRAMES) {
           if (listeningTimeout) clearTimeout(listeningTimeout);
@@ -163,7 +180,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 3. История для графика
+    // 3. История для графика (использует `currentPitchFreq` для плавности)
     pitchHistory.push(currentPitchFreq);
     if (pitchHistory.length > PITCH_HISTORY_SIZE) pitchHistory.shift();
 

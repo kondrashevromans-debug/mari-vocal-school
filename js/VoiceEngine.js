@@ -53,12 +53,34 @@ class VoiceEngine {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // =================== ИЗМЕНЕНИЯ НАЧИНАЮТСЯ ЗДЕСЬ ===================
+
+      // 1. Создаем и настраиваем фильтр низких частот (Low-Pass Filter)
+      // Он будет ослаблять громкость высоких частот (обертонов),
+      // которые и вызывают октавную ошибку.
+      const lowPassFilter = this.audioContext.createBiquadFilter();
+      lowPassFilter.type = "lowpass";
+      // Устанавливаем частоту среза. 2000 Hz - хорошее начальное значение.
+      lowPassFilter.frequency.setValueAtTime(
+        2000,
+        this.audioContext.currentTime
+      );
+
+      // 2. Создаем остальные узлы, как и раньше
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 2048;
       this.dataArray = new Float32Array(this.analyser.fftSize);
       this.sourceNode = this.audioContext.createMediaStreamSource(stream);
-      this.sourceNode.connect(this.analyser);
+
+      // 3. Собираем новую, улучшенную цепочку обработки звука:
+      // Микрофон -> Фильтр -> Анализатор -> "Тихий" выход
+      this.sourceNode.connect(lowPassFilter);
+      lowPassFilter.connect(this.analyser);
       this.analyser.connect(this.dummyGainNode);
+
+      // =================== ИЗМЕНЕНИЯ ЗАКАНЧИВАЮТСЯ ЗДЕСЬ ===================
+
       this.isListening = true;
     } catch (err) {
       console.error("Microphone access error:", err);

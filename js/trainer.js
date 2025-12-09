@@ -65,6 +65,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let ignoreFramesCounter = 0;
   let previousSmoothedFreq = null;
 
+  // =================== НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ПОСТ-ОБРАБОТКИ ===================
+  const CONFIRMATION_THRESHOLD = 3; // Сколько раз подряд видим ноту для подтверждения
+  let stableNoteDetails = null; // Детали подтвержденной ноты
+  let potentialNoteNum = null; // Номер ноты-кандидата
+  let potentialNoteCount = 0; // Счетчик для ноты-кандидата
+  // ==========================================================================
+
   // --- Переменные движка ---
   let exerciseId = null,
     octaveShift = 0,
@@ -107,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
         rawFreq = rawPitchInfo.frequency;
       }
 
-      // --- МЕДИАННЫЙ ФИЛЬТР ---
+      // --- МЕДИАННЫЙ ФИЛЬТР (без изменений) ---
       pitchBuffer.push(rawFreq);
       if (pitchBuffer.length > SMOOTHING_WINDOW_SIZE) {
         pitchBuffer.shift();
@@ -123,7 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
         smoothedFreq = validPitches[Math.floor(validPitches.length / 2)];
       }
 
-      // --- ЗАЩИТА ОТ АТАКИ ---
+      // --- ЗАЩИТА ОТ АТАКИ (без изменений) ---
       if (previousSmoothedFreq === null && smoothedFreq !== null) {
         ignoreFramesCounter = 5;
       }
@@ -141,18 +148,41 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       // -----------------------
 
-      updatePitchDisplay(pitchInfo);
+      // =================== НАЧАЛО: ЛОГИКА СГЛАЖИВАНИЯ И ПОДТВЕРЖДЕНИЯ НОТЫ ===================
+      if (pitchInfo) {
+        const currentNoteNum = pitchInfo.noteNum;
+        if (currentNoteNum === potentialNoteNum) {
+          potentialNoteCount++;
+        } else {
+          potentialNoteNum = currentNoteNum;
+          potentialNoteCount = 1;
+        }
+
+        if (potentialNoteCount >= CONFIRMATION_THRESHOLD) {
+          // Нота подтверждена! Обновляем стабильные данные.
+          stableNoteDetails = pitchInfo;
+        }
+      } else {
+        // Если тишина, сбрасываем все
+        stableNoteDetails = null;
+        potentialNoteNum = null;
+        potentialNoteCount = 0;
+      }
+      // =================== КОНЕЦ: ЛОГИКИ СГЛАЖИВАНИЯ =======================================
+
+      // Теперь вся дальнейшая логика использует `stableNoteDetails` вместо `pitchInfo`
+      updatePitchDisplay(stableNoteDetails);
 
       // Логика проверки ноты
       const isNoteCorrect =
-        pitchInfo &&
+        stableNoteDetails &&
         currentExercise &&
         currentExercise.notes[currentNoteIndex] &&
-        pitchInfo.noteNum ===
+        stableNoteDetails.noteNum ===
           voiceEngine.noteToNoteNum(
             currentExercise.notes[currentNoteIndex].noteName
           ) &&
-        Math.abs(pitchInfo.cents) <= centTolerance;
+        Math.abs(stableNoteDetails.cents) <= centTolerance;
 
       if (state === "LISTENING") {
         if (isNoteCorrect) {
@@ -166,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if ((Date.now() - noteStartTime) / 1000 >= holdDuration) {
             allNoteScores.push({
               note: currentExercise.notes[currentNoteIndex].noteName,
-              cents: pitchInfo.cents,
+              cents: stableNoteDetails.cents, // Используем стабильные данные
             });
             goToNextNote();
           }
@@ -182,7 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 3. История графика
+    // 3. История графика (использует `currentPitchFreq` для плавности)
     pitchHistory.push(currentPitchFreq);
     if (pitchHistory.length > PITCH_HISTORY_SIZE) pitchHistory.shift();
 
