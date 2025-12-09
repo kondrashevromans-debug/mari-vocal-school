@@ -1,0 +1,18 @@
+# Игнорировать локальный файл со ссылками на видео
+video_links.csv
+
+# Игнорировать зависимости Node.js (очень важно!)
+/node_modules
+
+# Системные файлы macOS и Windows
+.DS_Store
+Thumbs.db
+
+# Файлы окружения
+.env
+.env.*.local
+
+# Логи
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
