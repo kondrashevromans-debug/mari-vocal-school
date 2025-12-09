@@ -19,6 +19,7 @@
   {
     "id": "track_speech_diction_2",
     "tag": "[VIP]",
+    "hasDictionTrainer": true,
     "title": "Работа с карандашом/палочкой",
     "description": {
       "goal": "Заставить язык и губы работать с удвоенной силой и точностью, преодолевая физическое препятствие.",
@@ -88,7 +89,8 @@
       "sensation": "Интенсивную умственную и мышечную нагрузку («язык заплетается»). После регулярной практики — значительное улучшение четкости и беглости речи."
     },
     "videoId": "a165896028390f6b8244e82ab78dc5a5",
-    "accessKey": "FpzHqQPKMIkzpfMkQy7zVA"
+    "accessKey": "FpzHqQPKMIkzpfMkQy7zVA",
+    "hasDictionTrainer": true
   },
   {
     "id": "track_speech_diction_7",

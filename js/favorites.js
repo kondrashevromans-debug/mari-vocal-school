@@ -5,16 +5,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     JSON.parse(localStorage.getItem("favoriteExercises")) || []
   );
 
+  // Переменная для хранения данных о дикции
+  let dictionData = null;
+
   if (favoriteExercises.size === 0) {
     showEmptyMessage();
     return;
   }
 
   try {
-    // 1. Получаем все упражнения из всех модулей
-    const allExercisesMap = await fetchAllExercises();
+    // Параллельно загружаем все упражнения и данные для дикции
+    const [allExercisesMap, loadedDictionData] = await Promise.all([
+      fetchAllExercises(),
+      fetchDictionData(),
+    ]);
 
-    // 2. Отображаем только те, что в избранном
+    dictionData = loadedDictionData;
+
     buildFavoritesAccordion(allExercisesMap);
   } catch (error) {
     console.error("Ошибка при загрузке избранных упражнений:", error);
@@ -24,6 +31,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
+  // Функция для загрузки и кэширования данных о дикции
+  async function fetchDictionData() {
+    if (window.dictionDataCache) {
+      return window.dictionDataCache;
+    }
+    try {
+      const response = await fetch("/mari-vocal-school/data/diction_data.json");
+      if (!response.ok) throw new Error("Diction data not found");
+      const data = await response.json();
+      window.dictionDataCache = data;
+      return data;
+    } catch (e) {
+      console.warn("Не удалось загрузить данные для тренажера дикции.");
+      return null;
+    }
+  }
+
+  // Функция для загрузки всех упражнений
   async function fetchAllExercises() {
     const response = await fetch("/mari-vocal-school/data/tracks_data.json");
     if (!response.ok) throw new Error("Не удалось загрузить структуру треков");
@@ -43,12 +68,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const res = await fetch(moduleInfo.path);
         if (!res.ok) return [];
         const exercises = await res.json();
-        // Добавляем к каждому упражнению сгенерированный ID для консистентности
-        return exercises.map((ex, index) => {
+        return exercises.map((ex) => {
           if (!ex.id) {
-            ex.id = `${moduleInfo.trackId}_${
-              moduleInfo.path.split("/").pop().split(".")[0]
-            }_${index}`;
+            console.warn(
+              "Exercise is missing an ID in module:",
+              moduleInfo.path
+            );
           }
           return ex;
         });
@@ -59,13 +84,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const allModulesExercises = await Promise.all(modulePromises);
     const flatExercises = allModulesExercises.flat();
-
-    // Создаем Map для быстрого доступа: { exerciseId -> exerciseObject }
     const exercisesMap = new Map();
     flatExercises.forEach((ex) => exercisesMap.set(ex.id, ex));
     return exercisesMap;
   }
 
+  // Функция для построения аккордеона из избранных упражнений
   function buildFavoritesAccordion(allExercisesMap) {
     container.innerHTML = "";
     let displayedCount = 0;
@@ -84,6 +108,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  // Функция для создания HTML-элемента одного упражнения
   function createAccordionItem(exercise, exerciseId) {
     const item = document.createElement("div");
     item.className = "exercise-item-nested";
@@ -108,33 +133,41 @@ document.addEventListener("DOMContentLoaded", async () => {
       contentWrapper.innerHTML = `<div class="vip-lock-message"><span class="lock-icon">🔒</span><div><h4>Доступно на VIP-тарифе</h4><p>Это продвинутое упражнение для достижения максимальных результатов.</p></div></div>`;
       item.classList.add("locked");
     } else {
-      // --- НАЧАЛО ИЗМЕНЕНИЙ: Добавляем блок с видео ---
       let videoHtml = "";
       if (exercise.videoId) {
-        // Собираем базовый URL
         let videoSrc = `https://rutube.ru/play/embed/${exercise.videoId}`;
-
-        // Если есть ключ доступа, добавляем его
         if (exercise.accessKey) {
           videoSrc += `/?p=${exercise.accessKey}`;
         }
-
-        videoHtml = `
-              <div class="video-container">
-                  <iframe
-                      src="${videoSrc}"
-                      frameborder="0"
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      webkitAllowFullScreen
-                      mozallowfullscreen
-                      allowFullScreen>
-                  </iframe>
-              </div>
-          `;
+        videoHtml = `<div class="video-container"><iframe src="${videoSrc}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe></div>`;
       }
-      // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
-      let htmlContent = `${videoHtml}<h4>Цель:</h4><p>${exercise.description.goal}</p>`;
+      let dictionTrainerHtml = "";
+      if (exercise.hasDictionTrainer && dictionData) {
+        const syllableLines = Object.values(dictionData);
+        if (syllableLines.length > 0) {
+          const firstLineText = syllableLines[0].join(", ");
+          dictionTrainerHtml = `
+                  <div class="diction-trainer" data-syllables='${JSON.stringify(
+                    syllableLines
+                  )}' data-current-index="0">
+                      <div class="diction-trainer-header">Дикционные слогосочетания</div>
+                      <div class="diction-trainer-display">${firstLineText}</div>
+                      <div class="diction-trainer-controls">
+                          <button class="diction-trainer-button prev" disabled>&larr;</button>
+                          <span class="diction-trainer-progress">Строка 1 / ${
+                            syllableLines.length
+                          }</span>
+                          <button class="diction-trainer-button next">${
+                            syllableLines.length > 1 ? "&rarr;" : "✓"
+                          }</button>
+                      </div>
+                  </div>
+              `;
+        }
+      }
+
+      let htmlContent = `${videoHtml} ${dictionTrainerHtml} <h4>Цель:</h4><p>${exercise.description.goal}</p>`;
       if (
         exercise.description.technique &&
         exercise.description.technique.length > 0
@@ -155,13 +188,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const favoriteToggle = header.querySelector(".favorite-toggle");
     favoriteToggle.addEventListener("click", (e) => {
       e.stopPropagation();
-      // При клике на звезду на этой странице, упражнение удаляется из избранного и из DOM
       favoriteExercises.delete(exerciseId);
       localStorage.setItem(
         "favoriteExercises",
         JSON.stringify([...favoriteExercises])
       );
-      item.remove(); // Удаляем элемент со страницы
+      item.remove();
       if (favoriteExercises.size === 0) {
         showEmptyMessage();
       }
@@ -172,6 +204,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     return item;
   }
 
+  // Обработчик кликов для кнопок тренажера дикции
+  container.addEventListener("click", (event) => {
+    const target = event.target;
+    if (target.classList.contains("diction-trainer-button")) {
+      const trainer = target.closest(".diction-trainer");
+      if (!trainer) return;
+
+      const syllableLines = JSON.parse(trainer.dataset.syllables);
+      let currentIndex = parseInt(trainer.dataset.currentIndex, 10);
+      const total = syllableLines.length;
+
+      if (target.classList.contains("next")) {
+        currentIndex++;
+      } else if (target.classList.contains("prev")) {
+        currentIndex--;
+      }
+
+      trainer.dataset.currentIndex = currentIndex;
+
+      const display = trainer.querySelector(".diction-trainer-display");
+      const progress = trainer.querySelector(".diction-trainer-progress");
+      const prevBtn = trainer.querySelector(".prev");
+      const nextBtn = trainer.querySelector(".next");
+
+      display.textContent = syllableLines[currentIndex].join(", ");
+      progress.textContent = `Строка ${currentIndex + 1} / ${total}`;
+
+      prevBtn.disabled = currentIndex === 0;
+      nextBtn.disabled = currentIndex === total - 1;
+      nextBtn.innerHTML = currentIndex === total - 1 ? "✓" : "&rarr;";
+    }
+  });
+
+  // Вспомогательные функции для отображения сообщений
   function showEmptyMessage() {
     container.innerHTML = `<div class="empty-favorites-message"><p>Вы еще не добавили упражнения в избранное. <br>Нажмите на звездочку ☆ рядом с названием упражнения, чтобы добавить его сюда.</p></div>`;
   }

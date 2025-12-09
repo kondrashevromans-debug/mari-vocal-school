@@ -22,6 +22,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const sessionExerciseCount = {};
   let totalExercises = 0;
 
+  // --- 1. ПЕРЕМЕННАЯ ОБЪЯВЛЕНА ЗДЕСЬ ---
+  let dictionData = null;
+
   if (!partKey || !trackId) {
     showError(
       "Трек не найден",
@@ -31,7 +34,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    const allData = await window.DataService.getData();
+    // --- 2. ДАННЫЕ ЗАГРУЖАЮТСЯ ЗДЕСЬ (вместе с основными данными) ---
+    const [allData, loadedDictionData] = await Promise.all([
+      window.DataService.getData(),
+      fetchDictionData(),
+    ]);
+
+    // --- 3. ПЕРЕМЕННАЯ ПОЛУЧАЕТ СВОЕ ЗНАЧЕНИЕ ---
+    dictionData = loadedDictionData;
+
     const trackData = allData[partKey]?.tracks[trackId];
     if (!trackData) throw new Error("Данные для этого трека не найдены");
 
@@ -48,6 +59,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       "Ошибка загрузки",
       "Не удалось загрузить упражнения. Пожалуйста, попробуйте позже."
     );
+  }
+
+  async function fetchDictionData() {
+    if (window.dictionDataCache) {
+      return window.dictionDataCache;
+    }
+    try {
+      const response = await fetch("/mari-vocal-school/data/diction_data.json");
+      if (!response.ok) throw new Error("Diction data not found");
+      const data = await response.json();
+      window.dictionDataCache = data;
+      return data;
+    } catch (e) {
+      console.warn("Не удалось загрузить данные для тренажера дикции.");
+      return null;
+    }
   }
 
   function buildAccordionFromModules(modules) {
@@ -114,33 +141,46 @@ document.addEventListener("DOMContentLoaded", async () => {
       contentWrapper.innerHTML = `<div class="vip-lock-message"><span class="lock-icon">🔒</span><div><h4>Доступно на VIP-тарифе</h4><p>Это продвинутое упражнение для достижения максимальных результатов.</p></div></div>`;
       item.classList.add("locked");
     } else {
-      // --- НАЧАЛО ИЗМЕНЕНИЙ: Добавляем блок с видео ---
       let videoHtml = "";
       if (exercise.videoId) {
-        // Собираем базовый URL
         let videoSrc = `https://rutube.ru/play/embed/${exercise.videoId}`;
-
-        // Если есть ключ доступа, добавляем его
         if (exercise.accessKey) {
           videoSrc += `/?p=${exercise.accessKey}`;
         }
-
-        videoHtml = `
-              <div class="video-container">
-                  <iframe
-                      src="${videoSrc}"
-                      frameborder="0"
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      webkitAllowFullScreen
-                      mozallowfullscreen
-                      allowFullScreen>
-                  </iframe>
-              </div>
-          `;
+        videoHtml = `<div class="video-container"><iframe src="${videoSrc}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe></div>`;
       }
-      // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
-      let htmlContent = `${videoHtml}<h4>Цель:</h4><p>${exercise.description.goal}</p>`;
+      // --- 4. И ТОЛЬКО ПОТОМ ОНА ИСПОЛЬЗУЕТСЯ ЗДЕСЬ (УПРОЩЕННАЯ ВЕРСИЯ) ---
+      let dictionTrainerHtml = "";
+      if (exercise.hasDictionTrainer && dictionData) {
+        // Получаем массив строк (каждая строка - это массив слогов)
+        const syllableLines = Object.values(dictionData);
+
+        if (syllableLines.length > 0) {
+          // Отображаем первую строку, объединяя слоги через запятую
+          const firstLineText = syllableLines[0].join(", ");
+
+          dictionTrainerHtml = `
+                  <div class="diction-trainer" data-syllables='${JSON.stringify(
+                    syllableLines
+                  )}' data-current-index="0">
+                      <div class="diction-trainer-header">Дикционные слогосочетания</div>
+                      <div class="diction-trainer-display">${firstLineText}</div>
+                      <div class="diction-trainer-controls">
+                          <button class="diction-trainer-button prev" disabled>&larr;</button>
+                          <span class="diction-trainer-progress">Строка 1 / ${
+                            syllableLines.length
+                          }</span>
+                          <button class="diction-trainer-button next">${
+                            syllableLines.length > 1 ? "&rarr;" : "✓"
+                          }</button>
+                      </div>
+                  </div>
+              `;
+        }
+      }
+
+      let htmlContent = `${videoHtml} ${dictionTrainerHtml} <h4>Цель:</h4><p>${exercise.description.goal}</p>`;
       if (
         exercise.description.technique &&
         exercise.description.technique.length > 0
@@ -169,9 +209,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       htmlContent += noteBlock;
 
-      htmlContent += `<div class="complete-button-container">
-                        <button class="complete-button" data-exercise-id="${exerciseId}">Отметить как выполненное</button>
-                      </div>`;
+      htmlContent += `<div class="complete-button-container"><button class="complete-button" data-exercise-id="${exerciseId}">Отметить как выполненное</button></div>`;
       contentWrapper.innerHTML = htmlContent;
     }
 
@@ -251,9 +289,42 @@ document.addEventListener("DOMContentLoaded", async () => {
         toggleCompleteState(completeButton, exerciseId);
       });
     }
-
     return item;
   }
+
+  container.addEventListener("click", (event) => {
+    const target = event.target;
+    if (target.classList.contains("diction-trainer-button")) {
+      const trainer = target.closest(".diction-trainer");
+      if (!trainer) return;
+
+      // Теперь syllables - это массив строк (линий)
+      const syllableLines = JSON.parse(trainer.dataset.syllables);
+      let currentIndex = parseInt(trainer.dataset.currentIndex, 10);
+      const total = syllableLines.length;
+
+      if (target.classList.contains("next")) {
+        currentIndex++;
+      } else if (target.classList.contains("prev")) {
+        currentIndex--;
+      }
+
+      trainer.dataset.currentIndex = currentIndex;
+
+      const display = trainer.querySelector(".diction-trainer-display");
+      const progress = trainer.querySelector(".diction-trainer-progress");
+      const prevBtn = trainer.querySelector(".prev");
+      const nextBtn = trainer.querySelector(".next");
+
+      // Объединяем слоги текущей строки в один текст
+      display.textContent = syllableLines[currentIndex].join(", ");
+      progress.textContent = `Строка ${currentIndex + 1} / ${total}`;
+
+      prevBtn.disabled = currentIndex === 0;
+      nextBtn.disabled = currentIndex === total - 1;
+      nextBtn.innerHTML = currentIndex === total - 1 ? "✓" : "&rarr;";
+    }
+  });
 
   function toggleFavoriteState(starElement, exerciseId) {
     if (favoriteExercises.has(exerciseId)) {
@@ -293,16 +364,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       completedExercises.add(exerciseId);
       markAsCompleted(button);
       exerciseItem.classList.add("completed");
-
       trackSession();
-
-      // Отслеживание для ачивки "Перфекционист"
       sessionExerciseCount[exerciseId] =
         (sessionExerciseCount[exerciseId] || 0) + 1;
       if (sessionExerciseCount[exerciseId] >= 3) {
         localStorage.setItem("secret_perfectionist", new Date().toISOString());
       }
-
       window.AchievementsEngine.checkAndUnlock();
     }
     localStorage.setItem(progressKey, JSON.stringify([...completedExercises]));

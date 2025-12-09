@@ -1686,3 +1686,62 @@ body {
   width: 100%;
   height: 100%;
 }
+
+/* --- Стили для тренажера дикции --- */
+.diction-trainer {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  padding: 15px;
+  text-align: center;
+}
+
+.diction-trainer-header {
+  font-size: 0.9em;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.diction-trainer-display {
+  font-size: 1.4em; /* Уменьшаем шрифт для целой строки */
+  font-weight: 500;
+  color: var(--accent-color);
+  padding: 15px; /* Немного уменьшим отступы */
+  background-color: #fff;
+  border-radius: 6px;
+  min-height: 80px; /* Увеличим минимальную высоту */
+  line-height: 1.5; /* Улучшаем читаемость при переносе строк */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 15px;
+  border: 1px solid #eee;
+}
+
+.diction-trainer-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.diction-trainer-button {
+  background-color: #e9e9e9;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: #333;
+  user-select: none; /* Запретить выделение текста на кнопке */
+}
+.diction-trainer-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.diction-trainer-progress {
+  font-size: 1em;
+  color: #555;
+  font-family: monospace;
+}
