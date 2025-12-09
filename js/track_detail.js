@@ -114,7 +114,33 @@ document.addEventListener("DOMContentLoaded", async () => {
       contentWrapper.innerHTML = `<div class="vip-lock-message"><span class="lock-icon">🔒</span><div><h4>Доступно на VIP-тарифе</h4><p>Это продвинутое упражнение для достижения максимальных результатов.</p></div></div>`;
       item.classList.add("locked");
     } else {
-      let htmlContent = `<h4>Цель:</h4><p>${exercise.description.goal}</p>`;
+      // --- НАЧАЛО ИЗМЕНЕНИЙ: Добавляем блок с видео ---
+      let videoHtml = "";
+      if (exercise.videoId) {
+        // Собираем базовый URL
+        let videoSrc = `https://rutube.ru/play/embed/${exercise.videoId}`;
+
+        // Если есть ключ доступа, добавляем его
+        if (exercise.accessKey) {
+          videoSrc += `/?p=${exercise.accessKey}`;
+        }
+
+        videoHtml = `
+              <div class="video-container">
+                  <iframe
+                      src="${videoSrc}"
+                      frameborder="0"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      webkitAllowFullScreen
+                      mozallowfullscreen
+                      allowFullScreen>
+                  </iframe>
+              </div>
+          `;
+      }
+      // --- КОНЕЦ ИЗМЕНЕНИЙ ---
+
+      let htmlContent = `${videoHtml}<h4>Цель:</h4><p>${exercise.description.goal}</p>`;
       if (
         exercise.description.technique &&
         exercise.description.technique.length > 0
