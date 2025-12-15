@@ -122,7 +122,7 @@ class VoiceEngine {
    * Более устойчив к октавным ошибкам, чем YIN.
    */
   _mpm(buffer, sampleRate) {
-    const K = 0.8; // или 0.8 для начала
+    const K = 0.7; // или 0.8 для начала
     const bufferSize = buffer.length;
     const nsdf = new Float32Array(bufferSize);
 
