@@ -1,8 +1,9 @@
 // --- START OF FILE js/trainer.js ---
 
 document.addEventListener("DOMContentLoaded", () => {
-  // --- Инициализация голосового движка ---
+  // --- Инициализация голосового движка и обработчика высоты тона ---
   const voiceEngine = new VoiceEngine();
+  const pitchProcessor = createPitchProcessor(voiceEngine);
 
   // --- DOM-элементы ---
   const startButton = document.getElementById("trainerStartButton"),
@@ -59,24 +60,6 @@ document.addEventListener("DOMContentLoaded", () => {
     targetScrollOffset = 0,
     maxScrollOffset = 0;
 
-  // --- Переменные для сглаживания (Медианный фильтр) ---
-  const SMOOTHING_WINDOW_SIZE = 5;
-  let pitchBuffer = [];
-  let ignoreFramesCounter = 0;
-  let previousSmoothedFreq = null;
-
-  // --- Переменные для пост-обработки и подтверждения ноты ---
-  const CONFIRMATION_THRESHOLD = 3;
-  let stableNoteDetails = null;
-  let potentialNoteNum = null;
-  let potentialNoteCount = 0;
-
-  // --- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ЛОГИКИ ВЫБОРА И САМОКОРРЕКЦИИ (из тюнера) ---
-  let lastStableFreq = null;
-  let candidateFreq = null;
-  let candidateCount = 0;
-  const CANDIDATE_CONFIRMATION_THRESHOLD = 4;
-
   // --- Переменные движка ---
   let exerciseId = null,
     octaveShift = 0,
@@ -93,38 +76,6 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedStartNote = null;
   let audioLoaded = false;
 
-  /**
-   * Выбирает лучшую оценку высоты тона из двух алгоритмов (MPM и HPS).
-   * @param {{mpm: number|null, hps: number|null}} pitchResults - Результаты от VoiceEngine.
-   * @param {number|null} lastFreq - Последняя стабильно определенная частота.
-   * @returns {number|null} - Наиболее вероятная частота.
-   */
-  function selectBestPitch(pitchResults, lastFreq) {
-    const { mpm, hps } = pitchResults;
-
-    if (!mpm && !hps) return null;
-    if (!mpm) return hps;
-    if (!hps) return mpm;
-
-    const ratio = mpm / hps;
-    if (ratio > 1.9 && ratio < 2.1) return hps;
-    if (ratio > 0.47 && ratio < 0.53) return mpm;
-
-    if (lastFreq) {
-      const mpmDiff = Math.abs(mpm - lastFreq);
-      const hpsDiff = Math.abs(hps - lastFreq);
-
-      if (mpmDiff < lastFreq * 0.2 && hpsDiff < lastFreq * 0.2) {
-        return mpmDiff < hpsDiff ? mpm : hps;
-      }
-
-      if (mpmDiff < lastFreq * 0.2) return mpm;
-      if (hpsDiff < lastFreq * 0.2) return hps;
-    }
-
-    return mpm;
-  }
-
   function mainLoop() {
     // 1. Скролл
     let distance = targetScrollOffset - scrollOffsetPixels;
@@ -140,100 +91,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 2. Обработка звука через VoiceEngine
     let currentPitchFreq = null;
-    let pitchInfo = null;
 
     if (voiceEngine.isListening) {
-      // =================== НАЧАЛО: ОБНОВЛЕННЫЙ БЛОК ОБРАБОТКИ ЗВУКА ===================
       const rawPitchResults = voiceEngine.getPitch();
-      let rawFreq = null;
-      if (rawPitchResults) {
-        rawFreq = selectBestPitch(rawPitchResults, lastStableFreq);
-      }
-
-      if (rawFreq && lastStableFreq) {
-        const diff = Math.abs(rawFreq - lastStableFreq);
-        if (diff > lastStableFreq * 0.2) {
-          if (
-            candidateFreq &&
-            Math.abs(rawFreq - candidateFreq) < candidateFreq * 0.1
-          ) {
-            candidateCount++;
-          } else {
-            candidateFreq = rawFreq;
-            candidateCount = 1;
-          }
-
-          if (candidateCount >= CANDIDATE_CONFIRMATION_THRESHOLD) {
-            lastStableFreq = candidateFreq;
-            candidateFreq = null;
-            candidateCount = 0;
-          } else {
-            rawFreq = null;
-          }
-        } else {
-          candidateFreq = null;
-          candidateCount = 0;
-        }
-      } else if (!rawFreq) {
-        candidateFreq = null;
-        candidateCount = 0;
-      }
-
-      pitchBuffer.push(rawFreq);
-      if (pitchBuffer.length > SMOOTHING_WINDOW_SIZE) {
-        pitchBuffer.shift();
-      }
-
-      const validPitches = pitchBuffer.filter(
-        (p) => typeof p === "number" && p > 0
-      );
-      let smoothedFreq = null;
-
-      if (validPitches.length > SMOOTHING_WINDOW_SIZE / 2) {
-        validPitches.sort((a, b) => a - b);
-        smoothedFreq = validPitches[Math.floor(validPitches.length / 2)];
-      }
-
-      if (previousSmoothedFreq === null && smoothedFreq !== null) {
-        ignoreFramesCounter = 5;
-      }
-      previousSmoothedFreq = smoothedFreq;
-
-      if (ignoreFramesCounter > 0) {
-        currentPitchFreq = null;
-        pitchInfo = null;
-        ignoreFramesCounter--;
-      } else {
-        currentPitchFreq = smoothedFreq;
-        if (currentPitchFreq) {
-          pitchInfo = voiceEngine.frequencyToNoteDetails(currentPitchFreq);
-        }
-      }
-      // =================== КОНЕЦ: ОБНОВЛЕННОГО БЛОКА =================================
-
-      if (pitchInfo) {
-        const currentNoteNum = pitchInfo.noteNum;
-        if (currentNoteNum === potentialNoteNum) {
-          potentialNoteCount++;
-        } else {
-          potentialNoteNum = currentNoteNum;
-          potentialNoteCount = 1;
-        }
-
-        if (potentialNoteCount >= CONFIRMATION_THRESHOLD) {
-          stableNoteDetails = pitchInfo;
-          if (!lastStableFreq) {
-            // Устанавливаем самую первую стабильную частоту
-            lastStableFreq = stableNoteDetails.frequency;
-          }
-        }
-      } else {
-        stableNoteDetails = null;
-        potentialNoteNum = null;
-        potentialNoteCount = 0;
-      }
+      const stableNoteDetails = pitchProcessor.process(rawPitchResults);
 
       updatePitchDisplay(stableNoteDetails);
+
+      if (stableNoteDetails) {
+        currentPitchFreq = stableNoteDetails.frequency;
+      }
 
       const isNoteCorrect =
         stableNoteDetails &&
@@ -287,11 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
     noteStartTime = 0;
     selectedStartNote = null;
 
-    // =================== СБРОС КОНТЕКСТА ПРИ ПЕРЕЗАПУСКЕ ===================
-    lastStableFreq = null;
-    candidateFreq = null;
-    candidateCount = 0;
-    // ======================================================================
+    pitchProcessor.reset(); // Сброс состояния обработчика
 
     if (originalExercise) {
       currentExercise = JSON.parse(JSON.stringify(originalExercise));
