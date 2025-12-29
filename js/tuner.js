@@ -110,9 +110,14 @@ document.addEventListener("DOMContentLoaded", () => {
   let potentialNoteNum = null;
   let potentialNoteCount = 0;
 
-  // =================== НОВАЯ ПЕРЕМЕННАЯ ДЛЯ ЛОГИКИ ВЫБОРА ===================
+  // --- Переменные для логики выбора и самокоррекции ---
   let lastStableFreq = null; // Хранит последнюю подтвержденную частоту
-  // ==========================================================================
+
+  // =================== НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ "ПРАВИЛА СИЛЬНОГО БОЛЬШИНСТВА" ===================
+  let candidateFreq = null; // Частота-кандидат, которая сильно отличается от lastStableFreq
+  let candidateCount = 0; // Счетчик стабильности для кандидата
+  const CANDIDATE_CONFIRMATION_THRESHOLD = 4; // Требуем чуть большей стабильности для смены контекста
+  // =========================================================================================
 
   let isFrozen = false;
   let referenceOscillator = null;
@@ -427,7 +432,6 @@ document.addEventListener("DOMContentLoaded", () => {
     canvasCtx.stroke();
   }
 
-  // =================== НОВАЯ ФУНКЦИЯ "ГОЛОСОВАНИЯ" ===================
   /**
    * Выбирает лучшую оценку высоты тона из двух алгоритмов (MPM и HPS).
    * @param {{mpm: number|null, hps: number|null}} pitchResults - Результаты от VoiceEngine.
@@ -437,36 +441,37 @@ document.addEventListener("DOMContentLoaded", () => {
   function selectBestPitch(pitchResults, lastFreq) {
     const { mpm, hps } = pitchResults;
 
-    // 1. Простые случаи: если один из алгоритмов не дал результат
     if (!mpm && !hps) return null;
     if (!mpm) return hps;
     if (!hps) return mpm;
 
-    // 2. Ключевая проверка на октавную ошибку!
-    // Если одна частота примерно вдвое ниже другой, почти наверняка верна НИЖНЯЯ.
     const ratio = mpm / hps;
-    if (ratio > 1.9 && ratio < 2.1) {
-      // mpm на октаву выше
-      return hps; // HPS (нижняя) вероятнее всего верна
-    }
-    if (ratio > 0.47 && ratio < 0.53) {
-      // hps на октаву выше
-      return mpm; // MPM (нижняя) вероятнее всего верна
-    }
+    if (ratio > 1.9 && ratio < 2.1) return hps;
+    if (ratio > 0.47 && ratio < 0.53) return mpm;
 
-    // 3. Проверка на близость к предыдущей стабильной ноте
+    // =================== ИЗМЕНЕННАЯ ЛОГИКА С УЧЕТОМ САМОКОРРЕКЦИИ ===================
     if (lastFreq) {
       const mpmDiff = Math.abs(mpm - lastFreq);
       const hpsDiff = Math.abs(hps - lastFreq);
-      // Выбираем результат, если он ЗНАЧИТЕЛЬНО ближе к предыдущему
-      if (mpmDiff < hpsDiff / 2 && mpmDiff < 50) return mpm; // 50Hz - порог от "улетания"
-      if (hpsDiff < mpmDiff / 2 && hpsDiff < 50) return hps;
-    }
 
-    // 4. Если нет явных признаков ошибки, доверяем MPM как более точному по центам.
+      // Если оба результата близки к предыдущему, выбираем самый близкий
+      if (mpmDiff < lastFreq * 0.2 && hpsDiff < lastFreq * 0.2) {
+        // 0.2 = ~3 полутона
+        return mpmDiff < hpsDiff ? mpm : hps;
+      }
+
+      // Если только один результат близок, выбираем его
+      if (mpmDiff < lastFreq * 0.2) return mpm;
+      if (hpsDiff < lastFreq * 0.2) return hps;
+
+      // Если ОБА результата ДАЛЕКО, это может быть новая нота.
+      // В этом случае мы не используем lastFreq и доверяем MPM по умолчанию,
+      // позволяя логике "сильного большинства" подтвердить этот новый выбор.
+    }
+    // ==============================================================================
+
     return mpm;
   }
-  // ==========================================================================
 
   function mainLoop() {
     // 1. Скролл
@@ -486,15 +491,50 @@ document.addEventListener("DOMContentLoaded", () => {
     let pitchInfo = null;
 
     if (voiceEngine.isListening && !isFrozen) {
-      // =================== ИЗМЕНЕННАЯ ЛОГИКА ПОЛУЧЕНИЯ ЧАСТОТЫ ===================
-      const rawPitchResults = voiceEngine.getPitch(); // Получаем {mpm, hps}
+      const rawPitchResults = voiceEngine.getPitch();
       let rawFreq = null;
       if (rawPitchResults) {
         rawFreq = selectBestPitch(rawPitchResults, lastStableFreq);
       }
-      // ==========================================================================
 
-      // --- МЕДИАННЫЙ ФИЛЬТР (работает с выбранной частотой) ---
+      // =================== НОВЫЙ БЛОК: ЛОГИКА "СИЛЬНОГО БОЛЬШИНСТВА" ===================
+      if (rawFreq && lastStableFreq) {
+        const diff = Math.abs(rawFreq - lastStableFreq);
+        // Если новая частота сильно отличается (больше чем на 3 полутона)
+        if (diff > lastStableFreq * 0.2) {
+          // Проверяем, это тот же кандидат, что и в прошлый раз?
+          if (
+            candidateFreq &&
+            Math.abs(rawFreq - candidateFreq) < candidateFreq * 0.1
+          ) {
+            candidateCount++;
+          } else {
+            // Новый кандидат
+            candidateFreq = rawFreq;
+            candidateCount = 1;
+          }
+
+          // Если кандидат подтвержден, он становится новой "правдой"
+          if (candidateCount >= CANDIDATE_CONFIRMATION_THRESHOLD) {
+            lastStableFreq = candidateFreq; // Самокоррекция!
+            candidateFreq = null;
+            candidateCount = 0;
+          } else {
+            // Пока кандидат не подтвержден, игнорируем его и считаем, что звука нет
+            rawFreq = null;
+          }
+        } else {
+          // Частота близка к стабильной, сбрасываем кандидата
+          candidateFreq = null;
+          candidateCount = 0;
+        }
+      } else if (!rawFreq) {
+        // Если звука нет, сбрасываем кандидата
+        candidateFreq = null;
+        candidateCount = 0;
+      }
+      // ==============================================================================
+
       pitchBuffer.push(rawFreq);
       if (pitchBuffer.length > SMOOTHING_WINDOW_SIZE) {
         pitchBuffer.shift();
@@ -510,7 +550,6 @@ document.addEventListener("DOMContentLoaded", () => {
         smoothedFreq = validPitches[Math.floor(validPitches.length / 2)];
       }
 
-      // --- ЗАЩИТА ОТ АТАКИ ---
       if (previousSmoothedFreq === null && smoothedFreq !== null) {
         ignoreFramesCounter = 5;
       }
@@ -526,9 +565,7 @@ document.addEventListener("DOMContentLoaded", () => {
           pitchInfo = voiceEngine.frequencyToNoteDetails(currentPitchFreq);
         }
       }
-      // -----------------------
 
-      // --- ЛОГИКА СГЛАЖИВАНИЯ И ПОДТВЕРЖДЕНИЯ НОТЫ (остается без изменений) ---
       if (pitchInfo) {
         const currentNoteNum = pitchInfo.noteNum;
         if (currentNoteNum === potentialNoteNum) {
@@ -544,10 +581,12 @@ document.addEventListener("DOMContentLoaded", () => {
             stableNoteDetails.noteNum !== pitchInfo.noteNum
           ) {
             stableNoteDetails = pitchInfo;
-            lastStableFreq = stableNoteDetails.frequency; // Обновляем стабильную частоту
+            if (!lastStableFreq) {
+              // Устанавливаем самую первую стабильную частоту
+              lastStableFreq = stableNoteDetails.frequency;
+            }
           } else {
             stableNoteDetails.cents = pitchInfo.cents;
-            lastStableFreq = stableNoteDetails.frequency; // И здесь тоже
           }
 
           noteElement.textContent = stableNoteDetails.note;
@@ -643,7 +682,11 @@ document.addEventListener("DOMContentLoaded", () => {
         stableNoteDetails = null;
         potentialNoteNum = null;
         potentialNoteCount = 0;
-        lastStableFreq = null; // Сбрасываем стабильную частоту при тишине
+
+        // При долгой тишине сбрасываем контекст
+        if (!rawFreq) {
+          lastStableFreq = null;
+        }
 
         if (successfulSingTimeStart > 0) {
           const elapsedSeconds = (Date.now() - successfulSingTimeStart) / 1000;
@@ -679,7 +722,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 3. История графика
     pitchHistory.push(currentPitchFreq);
     if (pitchHistory.length > PITCH_HISTORY_SIZE) pitchHistory.shift();
 
