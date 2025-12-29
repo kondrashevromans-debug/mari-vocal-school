@@ -104,13 +104,14 @@ document.addEventListener("DOMContentLoaded", () => {
   let ignoreFramesCounter = 0;
   let previousSmoothedFreq = null;
 
-  // =================== НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ПОСТ-ОБРАБОТКИ ===================
-  // Сколько раз подряд мы должны увидеть ноту, чтобы считать ее стабильной.
-  // 3-5 - хорошее значение. Чем выше, тем стабильнее, но медленнее реакция.
+  // --- Переменные для пост-обработки и подтверждения ноты ---
   const CONFIRMATION_THRESHOLD = 3;
-  let stableNoteDetails = null; // Детали стабильной ноты, которая сейчас на экране
-  let potentialNoteNum = null; // Номер ноты-кандидата
-  let potentialNoteCount = 0; // Счетчик, сколько раз мы видели ноту-кандидата
+  let stableNoteDetails = null;
+  let potentialNoteNum = null;
+  let potentialNoteCount = 0;
+
+  // =================== НОВАЯ ПЕРЕМЕННАЯ ДЛЯ ЛОГИКИ ВЫБОРА ===================
+  let lastStableFreq = null; // Хранит последнюю подтвержденную частоту
   // ==========================================================================
 
   let isFrozen = false;
@@ -426,6 +427,47 @@ document.addEventListener("DOMContentLoaded", () => {
     canvasCtx.stroke();
   }
 
+  // =================== НОВАЯ ФУНКЦИЯ "ГОЛОСОВАНИЯ" ===================
+  /**
+   * Выбирает лучшую оценку высоты тона из двух алгоритмов (MPM и HPS).
+   * @param {{mpm: number|null, hps: number|null}} pitchResults - Результаты от VoiceEngine.
+   * @param {number|null} lastFreq - Последняя стабильно определенная частота.
+   * @returns {number|null} - Наиболее вероятная частота.
+   */
+  function selectBestPitch(pitchResults, lastFreq) {
+    const { mpm, hps } = pitchResults;
+
+    // 1. Простые случаи: если один из алгоритмов не дал результат
+    if (!mpm && !hps) return null;
+    if (!mpm) return hps;
+    if (!hps) return mpm;
+
+    // 2. Ключевая проверка на октавную ошибку!
+    // Если одна частота примерно вдвое ниже другой, почти наверняка верна НИЖНЯЯ.
+    const ratio = mpm / hps;
+    if (ratio > 1.9 && ratio < 2.1) {
+      // mpm на октаву выше
+      return hps; // HPS (нижняя) вероятнее всего верна
+    }
+    if (ratio > 0.47 && ratio < 0.53) {
+      // hps на октаву выше
+      return mpm; // MPM (нижняя) вероятнее всего верна
+    }
+
+    // 3. Проверка на близость к предыдущей стабильной ноте
+    if (lastFreq) {
+      const mpmDiff = Math.abs(mpm - lastFreq);
+      const hpsDiff = Math.abs(hps - lastFreq);
+      // Выбираем результат, если он ЗНАЧИТЕЛЬНО ближе к предыдущему
+      if (mpmDiff < hpsDiff / 2 && mpmDiff < 50) return mpm; // 50Hz - порог от "улетания"
+      if (hpsDiff < mpmDiff / 2 && hpsDiff < 50) return hps;
+    }
+
+    // 4. Если нет явных признаков ошибки, доверяем MPM как более точному по центам.
+    return mpm;
+  }
+  // ==========================================================================
+
   function mainLoop() {
     // 1. Скролл
     let distance = targetScrollOffset - scrollOffsetPixels;
@@ -444,13 +486,15 @@ document.addEventListener("DOMContentLoaded", () => {
     let pitchInfo = null;
 
     if (voiceEngine.isListening && !isFrozen) {
-      const rawPitchInfo = voiceEngine.getPitch();
+      // =================== ИЗМЕНЕННАЯ ЛОГИКА ПОЛУЧЕНИЯ ЧАСТОТЫ ===================
+      const rawPitchResults = voiceEngine.getPitch(); // Получаем {mpm, hps}
       let rawFreq = null;
-      if (rawPitchInfo && typeof rawPitchInfo.frequency === "number") {
-        rawFreq = rawPitchInfo.frequency;
+      if (rawPitchResults) {
+        rawFreq = selectBestPitch(rawPitchResults, lastStableFreq);
       }
+      // ==========================================================================
 
-      // --- МЕДИАННЫЙ ФИЛЬТР (ВАШ КОД, ОСТАВЛЕН БЕЗ ИЗМЕНЕНИЙ) ---
+      // --- МЕДИАННЫЙ ФИЛЬТР (работает с выбранной частотой) ---
       pitchBuffer.push(rawFreq);
       if (pitchBuffer.length > SMOOTHING_WINDOW_SIZE) {
         pitchBuffer.shift();
@@ -466,7 +510,7 @@ document.addEventListener("DOMContentLoaded", () => {
         smoothedFreq = validPitches[Math.floor(validPitches.length / 2)];
       }
 
-      // --- ЗАЩИТА ОТ АТАКИ (ВАШ КОД, ОСТАВЛЕН БЕЗ ИЗМЕНЕНИЙ) ---
+      // --- ЗАЩИТА ОТ АТАКИ ---
       if (previousSmoothedFreq === null && smoothedFreq !== null) {
         ignoreFramesCounter = 5;
       }
@@ -484,7 +528,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       // -----------------------
 
-      // =================== НАЧАЛО: ЛОГИКА СГЛАЖИВАНИЯ И ПОДТВЕРЖДЕНИЯ НОТЫ ===================
+      // --- ЛОГИКА СГЛАЖИВАНИЯ И ПОДТВЕРЖДЕНИЯ НОТЫ (остается без изменений) ---
       if (pitchInfo) {
         const currentNoteNum = pitchInfo.noteNum;
         if (currentNoteNum === potentialNoteNum) {
@@ -495,19 +539,17 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (potentialNoteCount >= CONFIRMATION_THRESHOLD) {
-          // Нота подтверждена! Теперь можно обновлять UI и игровую логику.
-          // Если это новая стабильная нота, или если центы старой обновились
           if (
             !stableNoteDetails ||
             stableNoteDetails.noteNum !== pitchInfo.noteNum
           ) {
             stableNoteDetails = pitchInfo;
+            lastStableFreq = stableNoteDetails.frequency; // Обновляем стабильную частоту
           } else {
-            // Нота та же, но центы могли измениться. Обновляем их.
             stableNoteDetails.cents = pitchInfo.cents;
+            lastStableFreq = stableNoteDetails.frequency; // И здесь тоже
           }
 
-          // --- ВСЯ ЛОГИКА ОБНОВЛЕНИЯ UI И СТАТИСТИКИ ПЕРЕНЕСЕНА СЮДА ---
           noteElement.textContent = stableNoteDetails.note;
           octaveElement.textContent = stableNoteDetails.octave;
           centsElement.textContent = `Отклонение: ${stableNoteDetails.cents.toFixed(
@@ -529,9 +571,7 @@ document.addEventListener("DOMContentLoaded", () => {
               display.classList.add("octave-miss");
             else display.classList.add("wrong");
           }
-          // --- Конец логики UI ---
 
-          // --- Игровая логика (XP, Stats) ---
           let isCorrectNote = false;
           if (targetNote) {
             if (
@@ -593,23 +633,19 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
       } else {
-        // Если звука нет (pitchInfo is null)
         if (stableNoteDetails) {
-          // Если до этого была стабильная нота, сбрасываем UI
           noteElement.textContent = "--";
           octaveElement.textContent = "";
           centsElement.textContent = "Пойте в микрофон...";
           updateTuner(null);
           display.classList.remove("correct", "octave-miss", "wrong");
         }
-        // Сбрасываем состояние, чтобы при появлении нового звука не было задержки
         stableNoteDetails = null;
         potentialNoteNum = null;
         potentialNoteCount = 0;
+        lastStableFreq = null; // Сбрасываем стабильную частоту при тишине
 
-        // Сбрасываем игровую логику при тишине
         if (successfulSingTimeStart > 0) {
-          // (Копируем логику сохранения прогресса при прерывании ноты)
           const elapsedSeconds = (Date.now() - successfulSingTimeStart) / 1000;
           userProgress.xp += Math.round(elapsedSeconds * XP_PER_SECOND);
           if (!sessionStats.noteStats[targetNote])
@@ -636,7 +672,6 @@ document.addEventListener("DOMContentLoaded", () => {
         currentStreak = 0;
         recentCents = [];
       }
-      // =================== КОНЕЦ: ЛОГИКА СГЛАЖИВАНИЯ И ПОДТВЕРЖДЕНИЯ НОТЫ ===================
 
       if (Date.now() - lastSaveTime > 5000) {
         saveProgress();

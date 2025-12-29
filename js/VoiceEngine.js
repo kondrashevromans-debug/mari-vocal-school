@@ -5,11 +5,15 @@ class VoiceEngine {
     this.audioContext = null;
     this.analyser = null;
     this.sourceNode = null;
-    this.dataArray = null;
     this.dummyGainNode = null;
     this.isListening = false;
 
+    // Массивы для данных
+    this.timeDomainDataArray = null; // Для MPM (временная область)
+    this.frequencyDataArray = null; // Для HPS (частотная область)
+
     // Константы
+    this.fftSize = 4096; // Увеличим для лучшего разрешения по частоте, что важно для HPS
     this.noteStrings = [
       "C",
       "C#",
@@ -54,36 +58,37 @@ class VoiceEngine {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // =================== ИЗМЕНЕНИЯ НАЧИНАЮТСЯ ЗДЕСЬ ===================
-
-      // 1. Создаем и настраиваем фильтр низких частот (Low-Pass Filter)
-      // Он будет ослаблять громкость высоких частот (обертонов),
-      // которые и вызывают октавную ошибку.
+      // 1. Фильтр низких частот для ослабления обертонов
       const lowPassFilter = this.audioContext.createBiquadFilter();
       lowPassFilter.type = "lowpass";
-      // Устанавливаем частоту среза. 2000 Hz - хорошее начальное значение.
+      // Устанавливаем более агрессивное значение для отсечения гармоник
       lowPassFilter.frequency.setValueAtTime(
-        2000,
+        1200,
         this.audioContext.currentTime
       );
 
-      // 2. Создаем остальные узлы, как и раньше
+      // 2. Анализатор
       this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 2048;
-      this.dataArray = new Float32Array(this.analyser.fftSize);
+      this.analyser.fftSize = this.fftSize;
+
+      // Инициализируем ОБА массива для данных
+      this.timeDomainDataArray = new Float32Array(this.analyser.fftSize);
+      this.frequencyDataArray = new Float32Array(
+        this.analyser.frequencyBinCount
+      );
+
+      // 3. Источник звука
       this.sourceNode = this.audioContext.createMediaStreamSource(stream);
 
-      // 3. Собираем новую, улучшенную цепочку обработки звука:
+      // 4. Собираем цепочку обработки звука:
       // Микрофон -> Фильтр -> Анализатор -> "Тихий" выход
       this.sourceNode.connect(lowPassFilter);
       lowPassFilter.connect(this.analyser);
       this.analyser.connect(this.dummyGainNode);
 
-      // =================== ИЗМЕНЕНИЯ ЗАКАНЧИВАЮТСЯ ЗДЕСЬ ===================
-
       this.isListening = true;
     } catch (err) {
-      console.error("Microphone access error:", err);
+      console.error("Ошибка доступа к микрофону:", err);
       throw err;
     }
   }
@@ -96,39 +101,50 @@ class VoiceEngine {
     this.isListening = false;
   }
 
+  /**
+   * Получает оценки высоты тона от двух разных алгоритмов.
+   * @returns {{mpm: number|null, hps: number|null}} - Объект с результатами от MPM и HPS.
+   */
   getPitch() {
     if (!this.isListening || !this.analyser) return null;
 
-    this.analyser.getFloatTimeDomainData(this.dataArray);
+    // Получаем данные для обоих алгоритмов
+    this.analyser.getFloatTimeDomainData(this.timeDomainDataArray);
+    this.analyser.getFloatFrequencyData(this.frequencyDataArray);
 
+    // Проверка громкости
     let rms = 0;
-    for (let i = 0; i < this.dataArray.length; i++) {
-      rms += this.dataArray[i] * this.dataArray[i];
+    for (let i = 0; i < this.timeDomainDataArray.length; i++) {
+      rms += this.timeDomainDataArray[i] * this.timeDomainDataArray[i];
     }
-    rms = Math.sqrt(rms / this.dataArray.length);
+    rms = Math.sqrt(rms / this.timeDomainDataArray.length);
 
-    if (rms < this.rmsThreshold) return null;
+    if (rms < this.rmsThreshold) return { mpm: null, hps: null };
 
-    // Используем новый, более точный алгоритм MPM
-    const pitchInHz = this._mpm(this.dataArray, this.audioContext.sampleRate);
+    // Запускаем оба детектора
+    const mpmPitch = this._mpm(
+      this.timeDomainDataArray,
+      this.audioContext.sampleRate
+    );
+    const hpsPitch = this._hps(
+      this.frequencyDataArray,
+      this.audioContext.sampleRate
+    );
 
-    if (!pitchInHz) return null;
-
-    return this.frequencyToNoteDetails(pitchInHz);
+    return { mpm: mpmPitch, hps: hpsPitch };
   }
 
   /**
    * Алгоритм MPM (McLeod Pitch Method) для определения высоты тона.
-   * Более устойчив к октавным ошибкам, чем YIN.
+   * Точен в определении центов.
    */
   _mpm(buffer, sampleRate) {
-    const K = 0.7; // или 0.8 для начала
+    const K = 0.8; // Более строгий порог для уменьшения ошибок
     const bufferSize = buffer.length;
     const nsdf = new Float32Array(bufferSize);
 
-    // 1. Автокорреляция с использованием NSDF
-    let acf = 0;
-    let m = 0;
+    let acf = 0,
+      m = 0;
     for (let tau = 0; tau < bufferSize; tau++) {
       acf = 0;
       m = 0;
@@ -139,20 +155,16 @@ class VoiceEngine {
       nsdf[tau] = (2 * acf) / (m || 1);
     }
 
-    // 2. Поиск пиков (локальных максимумов)
     const maxPositions = [];
     let maxVal = -Infinity;
     for (let i = 1; i < nsdf.length - 1; i++) {
-      if (nsdf[i] > maxVal) {
-        maxVal = nsdf[i];
-      }
+      if (nsdf[i] > maxVal) maxVal = nsdf[i];
       if (nsdf[i] > nsdf[i - 1] && nsdf[i] > nsdf[i + 1]) {
         maxPositions.push(i);
       }
     }
     if (maxPositions.length === 0) return null;
 
-    // 3. Выбор лучшего пика
     let tauEstimate = -1;
     const threshold = K * maxVal;
     for (const pos of maxPositions) {
@@ -171,12 +183,11 @@ class VoiceEngine {
       }
     }
 
-    // 4. Параболическая интерполяция
     let pitchInHz = null;
     if (tauEstimate > 0 && tauEstimate < nsdf.length - 1) {
-      const y1 = nsdf[tauEstimate - 1];
-      const y2 = nsdf[tauEstimate];
-      const y3 = nsdf[tauEstimate + 1];
+      const y1 = nsdf[tauEstimate - 1],
+        y2 = nsdf[tauEstimate],
+        y3 = nsdf[tauEstimate + 1];
       const denominator = 2 * (2 * y2 - y3 - y1);
       if (denominator !== 0) {
         const betterTau = tauEstimate + (y1 - y3) / denominator;
@@ -186,11 +197,54 @@ class VoiceEngine {
       }
     }
 
-    // 5. Фильтрация
-    return pitchInHz > 50 && pitchInHz < 3000 ? pitchInHz : null;
+    return pitchInHz > 60 && pitchInHz < 2000 ? pitchInHz : null;
   }
 
-  // --- Утилиты (остаются без изменений) ---
+  /**
+   * Алгоритм HPS (Harmonic Product Spectrum).
+   * Устойчив к октавным ошибкам.
+   */
+  _hps(spectrum, sampleRate) {
+    const result = new Float32Array(spectrum.length);
+
+    // 1. Копируем спектр и конвертируем из dB в линейную шкалу мощности
+    for (let i = 0; i < spectrum.length; i++) {
+      result[i] = Math.pow(10, spectrum[i] / 10);
+    }
+
+    // 2. Перемножаем спектр с его сжатыми версиями (гармониками)
+    const harmonics = 4; // Количество гармоник для проверки
+    for (let i = 0; i < result.length; i++) {
+      for (let j = 2; j <= harmonics; j++) {
+        if (i * j < result.length) {
+          result[i] *= result[i * j];
+        } else {
+          result[i] = 0; // Обнуляем, если не хватает данных для гармоники
+        }
+      }
+    }
+
+    // 3. Находим пик в результирующем спектре
+    let maxVal = -1;
+    let maxIndex = -1;
+    const minIndex = Math.round((60 * this.fftSize) / sampleRate); // Начинаем поиск с 60 Гц
+    const maxIndexLimit = Math.round((2000 * this.fftSize) / sampleRate); // Ограничиваем поиск 2000 Гц
+
+    for (let i = minIndex; i < maxIndexLimit; i++) {
+      if (result[i] > maxVal) {
+        maxVal = result[i];
+        maxIndex = i;
+      }
+    }
+
+    if (maxIndex === -1) return null;
+
+    // 4. Конвертируем индекс в частоту
+    const pitchInHz = maxIndex * (sampleRate / this.fftSize);
+    return pitchInHz;
+  }
+
+  // --- Утилиты (остаются без изменений, используются в tuner.js) ---
 
   frequencyToNoteDetails(freq) {
     if (!freq) return null;
