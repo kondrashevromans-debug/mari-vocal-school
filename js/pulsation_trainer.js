@@ -63,12 +63,17 @@ document.addEventListener("DOMContentLoaded", () => {
   let ignoreFramesCounter = 0;
   let previousSmoothedFreq = null;
 
-  // =================== НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ПОСТ-ОБРАБОТКИ ===================
-  const CONFIRMATION_THRESHOLD = 3; // Порог подтверждения ноты
-  let stableNoteDetails = null; // Стабильные данные о ноте
-  let potentialNoteNum = null; // Номер ноты-кандидата
-  let potentialNoteCount = 0; // Счетчик для кандидата
-  // ==========================================================================
+  // --- Переменные для пост-обработки и подтверждения ноты ---
+  const CONFIRMATION_THRESHOLD = 3;
+  let stableNoteDetails = null;
+  let potentialNoteNum = null;
+  let potentialNoteCount = 0;
+
+  // --- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ЛОГИКИ ВЫБОРА И САМОКОРРЕКЦИИ ---
+  let lastStableFreq = null;
+  let candidateFreq = null;
+  let candidateCount = 0;
+  const CANDIDATE_CONFIRMATION_THRESHOLD = 4;
 
   // --- Переменные состояния упражнения ---
   let state = "SELECT_NOTE";
@@ -81,6 +86,38 @@ document.addEventListener("DOMContentLoaded", () => {
   let attemptsPerNote = {};
   let correctFrames = 0;
   let listeningTimeout = null;
+
+  /**
+   * Выбирает лучшую оценку высоты тона из двух алгоритмов (MPM и HPS).
+   * @param {{mpm: number|null, hps: number|null}} pitchResults - Результаты от VoiceEngine.
+   * @param {number|null} lastFreq - Последняя стабильно определенная частота.
+   * @returns {number|null} - Наиболее вероятная частота.
+   */
+  function selectBestPitch(pitchResults, lastFreq) {
+    const { mpm, hps } = pitchResults;
+
+    if (!mpm && !hps) return null;
+    if (!mpm) return hps;
+    if (!hps) return mpm;
+
+    const ratio = mpm / hps;
+    if (ratio > 1.9 && ratio < 2.1) return hps;
+    if (ratio > 0.47 && ratio < 0.53) return mpm;
+
+    if (lastFreq) {
+      const mpmDiff = Math.abs(mpm - lastFreq);
+      const hpsDiff = Math.abs(hps - lastFreq);
+
+      if (mpmDiff < lastFreq * 0.2 && hpsDiff < lastFreq * 0.2) {
+        return mpmDiff < hpsDiff ? mpm : hps;
+      }
+
+      if (mpmDiff < lastFreq * 0.2) return mpm;
+      if (hpsDiff < lastFreq * 0.2) return hps;
+    }
+
+    return mpm;
+  }
 
   function mainLoop() {
     // 1. Логика скролла
@@ -100,31 +137,62 @@ document.addEventListener("DOMContentLoaded", () => {
     let pitchInfo = null;
 
     if (voiceEngine.isListening) {
-      const rawPitchInfo = voiceEngine.getPitch();
+      // =================== НАЧАЛО: ОБНОВЛЕННЫЙ БЛОК ОБРАБОТКИ ЗВУКА ===================
+      const rawPitchResults = voiceEngine.getPitch();
       let rawFreq = null;
-      if (rawPitchInfo && typeof rawPitchInfo.frequency === "number") {
-        rawFreq = rawPitchInfo.frequency;
+      if (rawPitchResults) {
+        rawFreq = selectBestPitch(rawPitchResults, lastStableFreq);
       }
 
-      // --- МЕДИАННЫЙ ФИЛЬТР (без изменений) ---
+      if (rawFreq && lastStableFreq) {
+        const diff = Math.abs(rawFreq - lastStableFreq);
+        if (diff > lastStableFreq * 0.2) {
+          if (
+            candidateFreq &&
+            Math.abs(rawFreq - candidateFreq) < candidateFreq * 0.1
+          ) {
+            candidateCount++;
+          } else {
+            candidateFreq = rawFreq;
+            candidateCount = 1;
+          }
+
+          if (candidateCount >= CANDIDATE_CONFIRMATION_THRESHOLD) {
+            lastStableFreq = candidateFreq;
+            candidateFreq = null;
+            candidateCount = 0;
+          } else {
+            rawFreq = null;
+          }
+        } else {
+          candidateFreq = null;
+          candidateCount = 0;
+        }
+      } else if (!rawFreq) {
+        candidateFreq = null;
+        candidateCount = 0;
+      }
+
       pitchBuffer.push(rawFreq);
       if (pitchBuffer.length > SMOOTHING_WINDOW_SIZE) {
         pitchBuffer.shift();
       }
+
       const validPitches = pitchBuffer.filter(
         (p) => typeof p === "number" && p > 0
       );
       let smoothedFreq = null;
+
       if (validPitches.length > SMOOTHING_WINDOW_SIZE / 2) {
         validPitches.sort((a, b) => a - b);
         smoothedFreq = validPitches[Math.floor(validPitches.length / 2)];
       }
 
-      // --- ЛОГИКА АТАКИ (без изменений) ---
       if (previousSmoothedFreq === null && smoothedFreq !== null) {
         ignoreFramesCounter = 5;
       }
       previousSmoothedFreq = smoothedFreq;
+
       if (ignoreFramesCounter > 0) {
         currentPitchFreq = null;
         pitchInfo = null;
@@ -135,9 +203,8 @@ document.addEventListener("DOMContentLoaded", () => {
           pitchInfo = voiceEngine.frequencyToNoteDetails(currentPitchFreq);
         }
       }
-      // ----------------------------------------------------
+      // =================== КОНЕЦ: ОБНОВЛЕННОГО БЛОКА =================================
 
-      // =================== НАЧАЛО: ЛОГИКА СГЛАЖИВАНИЯ И ПОДТВЕРЖДЕНИЯ НОТЫ ===================
       if (pitchInfo) {
         const currentNoteNum = pitchInfo.noteNum;
         if (currentNoteNum === potentialNoteNum) {
@@ -149,15 +216,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (potentialNoteCount >= CONFIRMATION_THRESHOLD) {
           stableNoteDetails = pitchInfo;
+          if (!lastStableFreq) {
+            // Устанавливаем самую первую стабильную частоту
+            lastStableFreq = stableNoteDetails.frequency;
+          }
         }
       } else {
         stableNoteDetails = null;
         potentialNoteNum = null;
         potentialNoteCount = 0;
       }
-      // =================== КОНЕЦ: ЛОГИКИ СГЛАЖИВАНИЯ =======================================
 
-      // Вся дальнейшая логика использует `stableNoteDetails`
       updatePitchDisplay(stableNoteDetails);
 
       if (state === "LISTENING") {
@@ -169,7 +238,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isNoteCorrect) {
           correctFrames++;
         } else {
-          // Уменьшаем счетчик медленнее, чтобы дать шанс на восстановление
           correctFrames = Math.max(0, correctFrames - 2);
         }
 
@@ -180,7 +248,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 3. История для графика (использует `currentPitchFreq` для плавности)
     pitchHistory.push(currentPitchFreq);
     if (pitchHistory.length > PITCH_HISTORY_SIZE) pitchHistory.shift();
 
@@ -354,6 +421,13 @@ document.addEventListener("DOMContentLoaded", () => {
     limitNoteNum = null;
     attemptsPerNote = {};
     direction = "up";
+
+    // =================== СБРОС КОНТЕКСТА ПРИ ПЕРЕЗАПУСКЕ ===================
+    lastStableFreq = null;
+    candidateFreq = null;
+    candidateCount = 0;
+    // ======================================================================
+
     resultsModal.classList.add("hidden");
     document
       .querySelectorAll(".key.target, .key.target-exercise")
@@ -489,7 +563,6 @@ document.addEventListener("DOMContentLoaded", () => {
       key.addEventListener("click", handleKeyClick);
       pianoContainer.appendChild(key);
     }
-    // Центруем клавиатуру на C4 (noteNum=48)
     scrollToNote(48, true);
   }
 
@@ -620,8 +693,6 @@ document.addEventListener("DOMContentLoaded", () => {
       canvas.style.transform = `translateY(-${scrollOffsetPixels}px)`;
     }
   }
-
-  // --- НОВАЯ УНИВЕРСАЛЬНАЯ ЛОГИКА ИНИЦИАЛИЗАЦИИ ---
 
   async function startAudioLoadingProcess() {
     voiceEngine.initAudioContext();

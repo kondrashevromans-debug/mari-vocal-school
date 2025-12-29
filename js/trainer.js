@@ -65,12 +65,17 @@ document.addEventListener("DOMContentLoaded", () => {
   let ignoreFramesCounter = 0;
   let previousSmoothedFreq = null;
 
-  // =================== НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ПОСТ-ОБРАБОТКИ ===================
-  const CONFIRMATION_THRESHOLD = 3; // Сколько раз подряд видим ноту для подтверждения
-  let stableNoteDetails = null; // Детали подтвержденной ноты
-  let potentialNoteNum = null; // Номер ноты-кандидата
-  let potentialNoteCount = 0; // Счетчик для ноты-кандидата
-  // ==========================================================================
+  // --- Переменные для пост-обработки и подтверждения ноты ---
+  const CONFIRMATION_THRESHOLD = 3;
+  let stableNoteDetails = null;
+  let potentialNoteNum = null;
+  let potentialNoteCount = 0;
+
+  // --- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ЛОГИКИ ВЫБОРА И САМОКОРРЕКЦИИ (из тюнера) ---
+  let lastStableFreq = null;
+  let candidateFreq = null;
+  let candidateCount = 0;
+  const CANDIDATE_CONFIRMATION_THRESHOLD = 4;
 
   // --- Переменные движка ---
   let exerciseId = null,
@@ -87,6 +92,38 @@ document.addEventListener("DOMContentLoaded", () => {
     noteResetTimeout = null,
     selectedStartNote = null;
   let audioLoaded = false;
+
+  /**
+   * Выбирает лучшую оценку высоты тона из двух алгоритмов (MPM и HPS).
+   * @param {{mpm: number|null, hps: number|null}} pitchResults - Результаты от VoiceEngine.
+   * @param {number|null} lastFreq - Последняя стабильно определенная частота.
+   * @returns {number|null} - Наиболее вероятная частота.
+   */
+  function selectBestPitch(pitchResults, lastFreq) {
+    const { mpm, hps } = pitchResults;
+
+    if (!mpm && !hps) return null;
+    if (!mpm) return hps;
+    if (!hps) return mpm;
+
+    const ratio = mpm / hps;
+    if (ratio > 1.9 && ratio < 2.1) return hps;
+    if (ratio > 0.47 && ratio < 0.53) return mpm;
+
+    if (lastFreq) {
+      const mpmDiff = Math.abs(mpm - lastFreq);
+      const hpsDiff = Math.abs(hps - lastFreq);
+
+      if (mpmDiff < lastFreq * 0.2 && hpsDiff < lastFreq * 0.2) {
+        return mpmDiff < hpsDiff ? mpm : hps;
+      }
+
+      if (mpmDiff < lastFreq * 0.2) return mpm;
+      if (hpsDiff < lastFreq * 0.2) return hps;
+    }
+
+    return mpm;
+  }
 
   function mainLoop() {
     // 1. Скролл
@@ -106,15 +143,42 @@ document.addEventListener("DOMContentLoaded", () => {
     let pitchInfo = null;
 
     if (voiceEngine.isListening) {
-      // Получаем сырые данные
-      const rawPitchInfo = voiceEngine.getPitch();
-
+      // =================== НАЧАЛО: ОБНОВЛЕННЫЙ БЛОК ОБРАБОТКИ ЗВУКА ===================
+      const rawPitchResults = voiceEngine.getPitch();
       let rawFreq = null;
-      if (rawPitchInfo && typeof rawPitchInfo.frequency === "number") {
-        rawFreq = rawPitchInfo.frequency;
+      if (rawPitchResults) {
+        rawFreq = selectBestPitch(rawPitchResults, lastStableFreq);
       }
 
-      // --- МЕДИАННЫЙ ФИЛЬТР (без изменений) ---
+      if (rawFreq && lastStableFreq) {
+        const diff = Math.abs(rawFreq - lastStableFreq);
+        if (diff > lastStableFreq * 0.2) {
+          if (
+            candidateFreq &&
+            Math.abs(rawFreq - candidateFreq) < candidateFreq * 0.1
+          ) {
+            candidateCount++;
+          } else {
+            candidateFreq = rawFreq;
+            candidateCount = 1;
+          }
+
+          if (candidateCount >= CANDIDATE_CONFIRMATION_THRESHOLD) {
+            lastStableFreq = candidateFreq;
+            candidateFreq = null;
+            candidateCount = 0;
+          } else {
+            rawFreq = null;
+          }
+        } else {
+          candidateFreq = null;
+          candidateCount = 0;
+        }
+      } else if (!rawFreq) {
+        candidateFreq = null;
+        candidateCount = 0;
+      }
+
       pitchBuffer.push(rawFreq);
       if (pitchBuffer.length > SMOOTHING_WINDOW_SIZE) {
         pitchBuffer.shift();
@@ -130,7 +194,6 @@ document.addEventListener("DOMContentLoaded", () => {
         smoothedFreq = validPitches[Math.floor(validPitches.length / 2)];
       }
 
-      // --- ЗАЩИТА ОТ АТАКИ (без изменений) ---
       if (previousSmoothedFreq === null && smoothedFreq !== null) {
         ignoreFramesCounter = 5;
       }
@@ -146,9 +209,8 @@ document.addEventListener("DOMContentLoaded", () => {
           pitchInfo = voiceEngine.frequencyToNoteDetails(currentPitchFreq);
         }
       }
-      // -----------------------
+      // =================== КОНЕЦ: ОБНОВЛЕННОГО БЛОКА =================================
 
-      // =================== НАЧАЛО: ЛОГИКА СГЛАЖИВАНИЯ И ПОДТВЕРЖДЕНИЯ НОТЫ ===================
       if (pitchInfo) {
         const currentNoteNum = pitchInfo.noteNum;
         if (currentNoteNum === potentialNoteNum) {
@@ -159,21 +221,20 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (potentialNoteCount >= CONFIRMATION_THRESHOLD) {
-          // Нота подтверждена! Обновляем стабильные данные.
           stableNoteDetails = pitchInfo;
+          if (!lastStableFreq) {
+            // Устанавливаем самую первую стабильную частоту
+            lastStableFreq = stableNoteDetails.frequency;
+          }
         }
       } else {
-        // Если тишина, сбрасываем все
         stableNoteDetails = null;
         potentialNoteNum = null;
         potentialNoteCount = 0;
       }
-      // =================== КОНЕЦ: ЛОГИКИ СГЛАЖИВАНИЯ =======================================
 
-      // Теперь вся дальнейшая логика использует `stableNoteDetails` вместо `pitchInfo`
       updatePitchDisplay(stableNoteDetails);
 
-      // Логика проверки ноты
       const isNoteCorrect =
         stableNoteDetails &&
         currentExercise &&
@@ -192,16 +253,14 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           if (noteStartTime === 0) noteStartTime = Date.now();
 
-          // Если удерживаем ноту достаточно долго
           if ((Date.now() - noteStartTime) / 1000 >= holdDuration) {
             allNoteScores.push({
               note: currentExercise.notes[currentNoteIndex].noteName,
-              cents: stableNoteDetails.cents, // Используем стабильные данные
+              cents: stableNoteDetails.cents,
             });
             goToNextNote();
           }
         } else {
-          // Если сбились, сбрасываем таймер удержания (с небольшой задержкой)
           if (noteStartTime !== 0 && !noteResetTimeout) {
             noteResetTimeout = setTimeout(() => {
               noteStartTime = 0;
@@ -212,7 +271,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 3. История графика (использует `currentPitchFreq` для плавности)
     pitchHistory.push(currentPitchFreq);
     if (pitchHistory.length > PITCH_HISTORY_SIZE) pitchHistory.shift();
 
@@ -228,9 +286,15 @@ document.addEventListener("DOMContentLoaded", () => {
     noteResetTimeout = null;
     noteStartTime = 0;
     selectedStartNote = null;
+
+    // =================== СБРОС КОНТЕКСТА ПРИ ПЕРЕЗАПУСКЕ ===================
+    lastStableFreq = null;
+    candidateFreq = null;
+    candidateCount = 0;
+    // ======================================================================
+
     if (originalExercise) {
       currentExercise = JSON.parse(JSON.stringify(originalExercise));
-      // Для динамических упражнений очищаем ноты, они будут сгенерированы при клике
       if (currentExercise.type === "dynamic") {
         currentExercise.notes = [];
       }
@@ -292,7 +356,6 @@ document.addEventListener("DOMContentLoaded", () => {
     updateUI();
     const results = calculateResults();
 
-    // Сохранение статистики (оставляем как было)
     localStorage.setItem("trainer_first_use", new Date().toISOString());
     if (results.accuracy >= 80)
       localStorage.setItem("trainer_accuracy_80", new Date().toISOString());
@@ -506,13 +569,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function isStartNoteValid(startNoteNum, exercise) {
     if (!exercise) return true;
 
-    // Валидация для динамических упражнений
     if (exercise.type === "dynamic" && exercise.generator) {
       switch (exercise.generator.method) {
         case "chromatic":
           return startNoteNum + exercise.generator.steps <= MAX_NOTE_NUM;
 
-        // --- ИЗМЕНЕНИЕ: Добавлена валидация для интервалов ---
         case "intervals":
           if (
             !exercise.generator.steps ||
@@ -531,7 +592,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Валидация для статичных упражнений
     if (exercise.type === "static" || !exercise.type) {
       if (!exercise.notes || exercise.notes.length === 0) return true;
       const firstNoteNum = voiceEngine.noteToNoteNum(
@@ -587,7 +647,6 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedStartNote = noteName;
     currentExercise = JSON.parse(JSON.stringify(originalExercise));
 
-    // Генерация или транспонирование на основе типа упражнения
     if (currentExercise.type === "dynamic" && currentExercise.generator) {
       const generatedNotes = [];
       switch (currentExercise.generator.method) {
@@ -601,7 +660,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           break;
 
-        // --- ИЗМЕНЕНИЕ: Добавлена генерация по интервалам ---
         case "intervals":
           currentExercise.generator.steps.forEach((step) => {
             const noteNum = startNoteNum + step;
@@ -615,7 +673,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       currentExercise.notes = generatedNotes;
     } else {
-      // По умолчанию или для "static"
       const firstNoteNum = voiceEngine.noteToNoteNum(
         originalExercise.notes[0].noteName
       );
@@ -744,7 +801,6 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = "trainer_menu.html";
   });
 
-  // --- Скролл (Touch/Mouse) ---
   let isManuallyScrolling = false;
   let lastTouchY = 0;
   let manualScrollTimeout = null;
@@ -843,7 +899,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      // Всегда загружаем JSON-конфигурацию упражнения
       const response = await fetch(
         `/mari-vocal-school/data/trainers/${exerciseId}.json`
       );
@@ -851,12 +906,10 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       originalExercise = await response.json();
 
-      // Устанавливаем длительность из конфига упражнения или из URL
       holdDuration =
         originalExercise.holdDuration ||
         parseFloat(urlParams.get("hold") || "1.0");
 
-      // Для статичных упражнений применяем сдвиг октавы из URL
       if (originalExercise.type === "static") {
         currentExercise = applyOctaveShift(originalExercise, octaveShift);
       } else {
