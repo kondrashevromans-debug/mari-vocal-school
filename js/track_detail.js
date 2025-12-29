@@ -6,7 +6,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const progressLabel = document.getElementById("progress-label");
   const progressBarFill = document.getElementById("progress-bar-fill");
 
-  const userAccessLevel = localStorage.getItem("userAccessLevel") || "basic";
+  // --- ИЗМЕНЕНО: Получаем уровень доступа из глобального объекта, а не из localStorage ---
+  // Это безопасно и всегда содержит актуальные данные, полученные при проверке в index.js
+  const userAccessLevel = sessionStorage.getItem("userAccessLevel") || "base";
+
   const urlParams = new URLSearchParams(window.location.search);
   const partKey = urlParams.get("part");
   const trackId = urlParams.get("track");
@@ -134,6 +137,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const contentWrapper = document.createElement("div");
     contentWrapper.className = "exercise-content-nested";
 
+    // --- ВАША ЛОГИКА УЖЕ ПРАВИЛЬНО ИСПОЛЬЗУЕТ ЭТУ ПЕРЕМЕННУЮ ---
     const level =
       exercise.tag && exercise.tag.includes("[VIP]") ? "advanced" : "basic";
 
@@ -143,6 +147,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else {
       let videoHtml = "";
       if (exercise.videoId) {
+        // Используем Rutube, как в вашем коде
         let videoSrc = `https://rutube.ru/play/embed/${exercise.videoId}`;
         if (exercise.accessKey) {
           videoSrc += `/?p=${exercise.accessKey}`;
@@ -150,16 +155,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         videoHtml = `<div class="video-container"><iframe src="${videoSrc}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe></div>`;
       }
 
-      // --- 4. И ТОЛЬКО ПОТОМ ОНА ИСПОЛЬЗУЕТСЯ ЗДЕСЬ (УПРОЩЕННАЯ ВЕРСИЯ) ---
       let dictionTrainerHtml = "";
       if (exercise.hasDictionTrainer && dictionData) {
-        // Получаем массив строк (каждая строка - это массив слогов)
         const syllableLines = Object.values(dictionData);
 
         if (syllableLines.length > 0) {
-          // Отображаем первую строку, объединяя слоги через запятую
           const firstLineText = syllableLines[0].join(", ");
-
           dictionTrainerHtml = `
                   <div class="diction-trainer" data-syllables='${JSON.stringify(
                     syllableLines
@@ -298,7 +299,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       const trainer = target.closest(".diction-trainer");
       if (!trainer) return;
 
-      // Теперь syllables - это массив строк (линий)
       const syllableLines = JSON.parse(trainer.dataset.syllables);
       let currentIndex = parseInt(trainer.dataset.currentIndex, 10);
       const total = syllableLines.length;
@@ -316,7 +316,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       const prevBtn = trainer.querySelector(".prev");
       const nextBtn = trainer.querySelector(".next");
 
-      // Объединяем слоги текущей строки в один текст
       display.textContent = syllableLines[currentIndex].join(", ");
       progress.textContent = `Строка ${currentIndex + 1} / ${total}`;
 

@@ -3,17 +3,22 @@
 class VoiceEngine {
   constructor() {
     this.audioContext = null;
-    this.analyser = null;
     this.sourceNode = null;
     this.dummyGainNode = null;
     this.isListening = false;
 
+    // --- НОВАЯ ДВУХКОНТУРНАЯ СИСТЕМА ---
+    this.analyserWide = null; // "Разведчик": слушает весь спектр для грубой оценки
+    this.analyserNarrow = null; // "Снайпер": слушает отфильтрованный звук для точного анализа
+    this.lowPassFilter = null; // Наш динамический фильтр
+
     // Массивы для данных
-    this.timeDomainDataArray = null; // Для MPM (временная область)
-    this.frequencyDataArray = null; // Для HPS (частотная область)
+    this.timeDomainDataArray = null; // Для MPM (от "Снайпера")
+    this.frequencyDataArrayNarrow = null; // Для HPS (от "Снайпера")
+    this.frequencyDataArrayWide = null; // Для оценки спектра (от "Разведчика")
 
     // Константы
-    this.fftSize = 4096; // Увеличим для лучшего разрешения по частоте, что важно для HPS
+    this.fftSize = 4096;
     this.noteStrings = [
       "C",
       "C#",
@@ -30,7 +35,7 @@ class VoiceEngine {
     ];
     this.A4 = 440;
     this.C0 = this.A4 * Math.pow(2, -4.75);
-    this.rmsThreshold = 0.025; // Порог громкости
+    this.rmsThreshold = 0.025;
   }
 
   initAudioContext() {
@@ -57,34 +62,45 @@ class VoiceEngine {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.sourceNode = this.audioContext.createMediaStreamSource(stream);
 
-      // 1. Фильтр низких частот для ослабления обертонов
-      const lowPassFilter = this.audioContext.createBiquadFilter();
-      lowPassFilter.type = "lowpass";
-      // Устанавливаем более агрессивное значение для отсечения гармоник
-      lowPassFilter.frequency.setValueAtTime(
-        1200,
+      // --- СОЗДАЕМ КОМПОНЕНТЫ ДВУХКОНТУРНОЙ СИСТЕМЫ ---
+
+      // 1. Динамический Low-Pass фильтр. Начальное значение - безопасное.
+      this.lowPassFilter = this.audioContext.createBiquadFilter();
+      this.lowPassFilter.type = "lowpass";
+      this.lowPassFilter.frequency.setValueAtTime(
+        2000,
         this.audioContext.currentTime
       );
 
-      // 2. Анализатор
-      this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = this.fftSize;
-
-      // Инициализируем ОБА массива для данных
-      this.timeDomainDataArray = new Float32Array(this.analyser.fftSize);
-      this.frequencyDataArray = new Float32Array(
-        this.analyser.frequencyBinCount
+      // 2. "Разведчик" (analyserWide)
+      this.analyserWide = this.audioContext.createAnalyser();
+      this.analyserWide.fftSize = this.fftSize;
+      this.frequencyDataArrayWide = new Float32Array(
+        this.analyserWide.frequencyBinCount
       );
 
-      // 3. Источник звука
-      this.sourceNode = this.audioContext.createMediaStreamSource(stream);
+      // 3. "Снайпер" (analyserNarrow)
+      this.analyserNarrow = this.audioContext.createAnalyser();
+      this.analyserNarrow.fftSize = this.fftSize;
+      this.timeDomainDataArray = new Float32Array(this.analyserNarrow.fftSize);
+      this.frequencyDataArrayNarrow = new Float32Array(
+        this.analyserNarrow.frequencyBinCount
+      );
 
-      // 4. Собираем цепочку обработки звука:
-      // Микрофон -> Фильтр -> Анализатор -> "Тихий" выход
-      this.sourceNode.connect(lowPassFilter);
-      lowPassFilter.connect(this.analyser);
-      this.analyser.connect(this.dummyGainNode);
+      // 4. Собираем новую, раздвоенную цепочку обработки звука:
+      //
+      //                    ┌──> analyserWide ("Разведчик") ──> dummyGain (тишина)
+      // Микрофон (source)──┤
+      //                    └──> lowPassFilter ──> analyserNarrow ("Снайпер") ──> dummyGain (тишина)
+      //
+      this.sourceNode.connect(this.analyserWide);
+      this.analyserWide.connect(this.dummyGainNode);
+
+      this.sourceNode.connect(this.lowPassFilter);
+      this.lowPassFilter.connect(this.analyserNarrow);
+      this.analyserNarrow.connect(this.dummyGainNode);
 
       this.isListening = true;
     } catch (err) {
@@ -102,32 +118,65 @@ class VoiceEngine {
   }
 
   /**
-   * Получает оценки высоты тона от двух разных алгоритмов.
-   * @returns {{mpm: number|null, hps: number|null}} - Объект с результатами от MPM и HPS.
+   * Основной метод, реализующий адаптивную фильтрацию.
    */
   getPitch() {
-    if (!this.isListening || !this.analyser) return null;
+    if (!this.isListening || !this.analyserNarrow) return null;
 
-    // Получаем данные для обоих алгоритмов
-    this.analyser.getFloatTimeDomainData(this.timeDomainDataArray);
-    this.analyser.getFloatFrequencyData(this.frequencyDataArray);
+    // --- ЭТАП 1: РАЗВЕДКА ---
+    // Получаем полный, нефильтрованный спектр от "Разведчика"
+    this.analyserWide.getFloatFrequencyData(this.frequencyDataArrayWide);
 
-    // Проверка громкости
+    // Проверяем общую громкость по нефильтрованному сигналу (более надежно)
+    // Для этого нам нужны данные временной области от "Разведчика"
+    const wideTimeData = new Float32Array(this.analyserWide.fftSize);
+    this.analyserWide.getFloatTimeDomainData(wideTimeData);
     let rms = 0;
-    for (let i = 0; i < this.timeDomainDataArray.length; i++) {
-      rms += this.timeDomainDataArray[i] * this.timeDomainDataArray[i];
+    for (let i = 0; i < wideTimeData.length; i++) {
+      rms += wideTimeData[i] * wideTimeData[i];
     }
-    rms = Math.sqrt(rms / this.timeDomainDataArray.length);
+    rms = Math.sqrt(rms / wideTimeData.length);
 
     if (rms < this.rmsThreshold) return { mpm: null, hps: null };
 
-    // Запускаем оба детектора
+    // Находим пиковую частоту в нефильтрованном спектре
+    let peakFreq = this._findPeakFrequency(this.frequencyDataArrayWide);
+
+    // --- ЭТАП 2: АДАПТАЦИЯ ФИЛЬТРА ---
+    // На основе пиковой частоты принимаем решение о настройке фильтра
+    let targetFilterFreq;
+    if (peakFreq < 500) {
+      // Низкий голос или средний голос с сильным основным тоном.
+      // Можно использовать агрессивный фильтр.
+      targetFilterFreq = 900;
+    } else if (peakFreq < 1000) {
+      // Средний/высокий голос, возможно, с сильным обертоном.
+      // Используем умеренный фильтр.
+      targetFilterFreq = 1500;
+    } else {
+      // Очень высокий голос. Фильтр должен быть очень щадящим.
+      targetFilterFreq = 2500;
+    }
+
+    // Плавно (!) меняем частоту среза фильтра, чтобы избежать щелчков
+    this.lowPassFilter.frequency.setTargetAtTime(
+      targetFilterFreq,
+      this.audioContext.currentTime,
+      0.01 // timeConstant - скорость изменения
+    );
+
+    // --- ЭТАП 3: ТОЧНЫЙ АНАЛИЗ ---
+    // Теперь, когда фильтр настроен, получаем отфильтрованные данные от "Снайпера"
+    this.analyserNarrow.getFloatTimeDomainData(this.timeDomainDataArray);
+    this.analyserNarrow.getFloatFrequencyData(this.frequencyDataArrayNarrow);
+
+    // Запускаем наши точные алгоритмы на чистых данных
     const mpmPitch = this._mpm(
       this.timeDomainDataArray,
       this.audioContext.sampleRate
     );
     const hpsPitch = this._hps(
-      this.frequencyDataArray,
+      this.frequencyDataArrayNarrow,
       this.audioContext.sampleRate
     );
 
@@ -135,11 +184,35 @@ class VoiceEngine {
   }
 
   /**
-   * Алгоритм MPM (McLeod Pitch Method) для определения высоты тона.
-   * Точен в определении центов.
+   * Вспомогательный метод для грубого поиска пиковой частоты в спектре.
    */
+  _findPeakFrequency(spectrum) {
+    let maxVal = -Infinity;
+    let maxIndex = -1;
+
+    // Ищем пик в разумном диапазоне (например, от 80 Гц до 4000 Гц)
+    const minIndex = Math.round(
+      (80 * this.fftSize) / this.audioContext.sampleRate
+    );
+    const maxIndexLimit = Math.round(
+      (4000 * this.fftSize) / this.audioContext.sampleRate
+    );
+
+    for (let i = minIndex; i < maxIndexLimit; i++) {
+      if (spectrum[i] > maxVal) {
+        maxVal = spectrum[i];
+        maxIndex = i;
+      }
+    }
+
+    if (maxIndex === -1) return 0;
+
+    return maxIndex * (this.audioContext.sampleRate / this.fftSize);
+  }
+
+  // Алгоритмы _mpm и _hps остаются без изменений, так как они получают уже готовые данные
   _mpm(buffer, sampleRate) {
-    const K = 0.8; // Более строгий порог для уменьшения ошибок
+    const K = 0.8;
     const bufferSize = buffer.length;
     const nsdf = new Float32Array(bufferSize);
 
@@ -200,35 +273,28 @@ class VoiceEngine {
     return pitchInHz > 60 && pitchInHz < 2000 ? pitchInHz : null;
   }
 
-  /**
-   * Алгоритм HPS (Harmonic Product Spectrum).
-   * Устойчив к октавным ошибкам.
-   */
   _hps(spectrum, sampleRate) {
     const result = new Float32Array(spectrum.length);
 
-    // 1. Копируем спектр и конвертируем из dB в линейную шкалу мощности
     for (let i = 0; i < spectrum.length; i++) {
       result[i] = Math.pow(10, spectrum[i] / 10);
     }
 
-    // 2. Перемножаем спектр с его сжатыми версиями (гармониками)
-    const harmonics = 4; // Количество гармоник для проверки
+    const harmonics = 4;
     for (let i = 0; i < result.length; i++) {
       for (let j = 2; j <= harmonics; j++) {
         if (i * j < result.length) {
           result[i] *= result[i * j];
         } else {
-          result[i] = 0; // Обнуляем, если не хватает данных для гармоники
+          result[i] = 0;
         }
       }
     }
 
-    // 3. Находим пик в результирующем спектре
     let maxVal = -1;
     let maxIndex = -1;
-    const minIndex = Math.round((60 * this.fftSize) / sampleRate); // Начинаем поиск с 60 Гц
-    const maxIndexLimit = Math.round((2000 * this.fftSize) / sampleRate); // Ограничиваем поиск 2000 Гц
+    const minIndex = Math.round((60 * this.fftSize) / sampleRate);
+    const maxIndexLimit = Math.round((2000 * this.fftSize) / sampleRate);
 
     for (let i = minIndex; i < maxIndexLimit; i++) {
       if (result[i] > maxVal) {
@@ -239,13 +305,10 @@ class VoiceEngine {
 
     if (maxIndex === -1) return null;
 
-    // 4. Конвертируем индекс в частоту
-    const pitchInHz = maxIndex * (sampleRate / this.fftSize);
-    return pitchInHz;
+    return maxIndex * (sampleRate / this.fftSize);
   }
 
-  // --- Утилиты (остаются без изменений, используются в tuner.js) ---
-
+  // --- Утилиты ---
   frequencyToNoteDetails(freq) {
     if (!freq) return null;
     const num = 12 * Math.log2(freq / this.C0);
